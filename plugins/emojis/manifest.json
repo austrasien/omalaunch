@@ -1,0 +1,9 @@
+{
+  "id": "emojis",
+  "name": "Emojis",
+  "version": "1.0.0",
+  "author": "austrasien",
+  "license": "MIT (emoji names: Unicode License v3, see LICENSE-unicode.txt)",
+  "description": "“:feu” or “:fire”: emojis by French or English name, pasted into the focused window.",
+  "entry": "Provider.qml"
+}
