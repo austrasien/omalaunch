@@ -1,0 +1,9 @@
+{
+  "id": "music",
+  "name": "Music",
+  "version": "1.0.0",
+  "author": "austrasien",
+  "license": "MIT",
+  "description": "Play/pause, next and previous for whatever is playing (MPRIS: Spotify, browsers, mpv…).",
+  "entry": "Provider.qml"
+}
