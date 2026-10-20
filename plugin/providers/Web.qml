@@ -17,7 +17,7 @@ Item {
 
   function query(text) {
     var q = String(text).trim()
-    root.sectionTitle = "Use “" + q + "” with…"
+    root.sectionTitle = "Search the web"
     return root.engines.map(function(e) {
       return { id: e.id, title: "Search " + e.name, subtitle: q, icon: e.icon, type: "Web", url: e.url.replace("%s", encodeURIComponent(q)), copy: q }
     })

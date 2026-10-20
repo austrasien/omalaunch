@@ -73,7 +73,7 @@ Item {
 | `iconSource` | An image URL instead of a glyph. |
 | `type` | Label on the right (e.g. "Command"). |
 | `group` | `"commands"` (default) or `"apps"`, for the empty-query sections. |
-| `when` | Catalog rows only: `"always"` (default), `"searching"` (hidden until the user types) or `"empty"`. |
+| `visibility` | Catalog rows only: `"always"` (default), `"search-only"` (hidden until the user types) or `"idle-only"` (only with an empty search). |
 | `boost` | Number added to the rank score; use sparingly. |
 | `copy` | Text for Ctrl+Shift+C (defaults to the title). |
 | `disabled` | Shown greyed out; Enter does nothing. |

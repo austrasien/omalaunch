@@ -44,7 +44,8 @@ Item {
   }
 
   function opened() {
-    if (Date.now() - root.guardsAt > 2000) evaluateGuards()
+    // ~200 shell conditions cost about 1.5 s of CPU; refresh at most every 30 s.
+    if (Date.now() - root.guardsAt > 30000) evaluateGuards()
   }
 
   function composeEntries() {
@@ -85,7 +86,7 @@ Item {
       keywords: e.aliases.concat(e.description ? [e.description] : []).concat(trail),
       type: e.kind === "action" ? "Command" : "Menu",
       group: "commands",
-      when: e.parent === "" ? "always" : "searching",
+      visibility: e.parent === "" ? "always" : "search-only",
       disabled: !!(e.disabled && root.disabledResults[e.id] === true),
       boost: -25 * trail.length,
       checked: checked,
@@ -183,7 +184,7 @@ Item {
       var under = e.parent === menuId || e.id.indexOf(prefix) === 0
       if (!under) continue
       var r = rowFor(e)
-      r.when = e.parent === menuId ? "always" : "searching"
+      r.visibility = e.parent === menuId ? "always" : "search-only"
       if (e.parent === menuId) r.subtitle = e.description
       rows.push(r)
     }

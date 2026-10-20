@@ -86,7 +86,7 @@ Item {
     r.provider = providerId
     r.key = providerId + ":" + row.id
     if (!r.group) r.group = "commands"
-    if (!r.when) r.when = "always"
+    if (!r.visibility) r.visibility = "always"
     return r
   }
 

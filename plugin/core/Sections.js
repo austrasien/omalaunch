@@ -1,101 +1,105 @@
-// Assemble the root list (docs/SPEC.md §4).
+// Build the list the launcher shows (docs/SPEC.md §4).
 //
-// catalog: rows from catalog providers, each
-//   { key, title, subtitle?, keywords?, group: "commands"|"apps", when?: "always"|"empty"|"searching", ... }
-// dynamic: sections from query providers, each
-//   { id, title, placement: "inline"|"bottom", order, rows: [row] }
-// Returns [{ id, title, rows }] with empty sections dropped.
+// Inputs:
+//   catalog  rows from catalog providers:
+//            { key, title, ..., group: "commands"|"apps", visibility: "always"|"search-only"|"idle-only" }
+//   dynamic  query-provider sections: { id, title, placement: "inline"|"bottom", order, rows }
+// Output: [{ id, title, rows }], empty sections left out.
 
-var SUGGESTIONS = 6
-var RESULTS_LIMIT = 80
+var SUGGESTION_COUNT = 6
+var RESULT_LIMIT = 80
+var MIN_FRECENCY = 0.05
 
-function decorate(rows, state, now, deps) {
+// Copy each row with the user's state attached; drop disabled rows.
+function withState(rows, state, now, deps) {
   var out = []
-  for (var i = 0; i < rows.length; i++) {
-    var r = rows[i]
-    if (state.disabled[r.key]) continue
-    var d = {}
-    for (var k in r) d[k] = r[k]
+  rows.forEach(function(r) {
+    if (state.disabled[r.key]) return
+    var d = Object.assign({}, r)
     d.alias = state.aliases[r.key] || ""
     d.favorite = state.favorites.indexOf(r.key) >= 0
     d.frecency = deps.State.frecency(state, r.key, now)
     d.terms = deps.State.terms(state, r.key, now)
     out.push(d)
-  }
+  })
   return out
 }
 
-function byTitle(a, b) {
-  var ta = String(a.title || "").toLowerCase()
-  var tb = String(b.title || "").toLowerCase()
-  return ta < tb ? -1 : (ta > tb ? 1 : 0)
+function titleOrder(a, b) {
+  return String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base" })
+}
+
+// Idle (empty query) view. Every row lands in exactly one bucket, decided
+// in priority order: favourite, frequently used, then its group.
+function idleView(rows, state, deps) {
+  var favOrder = {}
+  state.favorites.forEach(function(k, i) { favOrder[k] = i })
+  var frequent = {}
+  deps.Rank.rank(rows.filter(function(r) { return !(r.key in favOrder) && r.frecency > MIN_FRECENCY }), "")
+    .slice(0, SUGGESTION_COUNT)
+    .forEach(function(x, i) { frequent[x.row.key] = i })
+
+  var buckets = { favorites: [], suggestions: [], commands: [], apps: [] }
+  rows.forEach(function(r) {
+    if (r.key in favOrder) buckets.favorites.push(r)
+    else if (r.key in frequent) buckets.suggestions.push(r)
+    else if (r.visibility === "search-only") return
+    else buckets[r.group === "apps" ? "apps" : "commands"].push(r)
+  })
+  buckets.favorites.sort(function(a, b) { return favOrder[a.key] - favOrder[b.key] })
+  buckets.suggestions.sort(function(a, b) { return frequent[a.key] - frequent[b.key] })
+  buckets.apps.sort(titleOrder)
+
+  var layout = [
+    ["favorites", "Favorites"],
+    ["suggestions", "Suggestions"],
+    ["commands", "Commands"],
+    ["apps", "Applications"]
+  ]
+  return layout.map(function(l) { return { id: l[0], title: l[1], rows: buckets[l[0]] } })
+}
+
+// Search view: inline plugin sections, then ranked results, then the rest.
+function searchView(rows, dynamic, query, deps) {
+  var byPlacement = function(p) {
+    return dynamic.filter(function(s) { return (s.placement === "inline") === (p === "inline") })
+      .sort(function(a, b) { return (a.order || 0) - (b.order || 0) })
+      .map(function(s) { return { id: s.id, title: s.title, rows: s.rows || [] } })
+  }
+  var candidates = rows.filter(function(r) { return r.visibility !== "idle-only" })
+  var results = deps.Rank.rank(candidates, query).slice(0, RESULT_LIMIT).map(function(x) { return x.row })
+  return byPlacement("inline")
+    .concat([{ id: "results", title: "Results", rows: results }])
+    .concat(byPlacement("bottom"))
+}
+
+function nonEmpty(sections) {
+  return sections.filter(function(s) { return s.rows.length > 0 })
 }
 
 function rootSections(catalog, dynamic, query, state, now, deps) {
+  var rows = withState(catalog, state, now, deps)
   var q = String(query || "").trim()
-  var rows = decorate(catalog, state, now, deps)
-  var sections = []
-  var dyn = (dynamic || []).filter(function(s) { return s.rows && s.rows.length > 0 })
-    .sort(function(a, b) { return (a.order || 0) - (b.order || 0) })
-
-  if (q) {
-    dyn.filter(function(s) { return s.placement === "inline" }).forEach(function(s) {
-      sections.push({ id: s.id, title: s.title, rows: s.rows })
-    })
-    var searchable = rows.filter(function(r) { return r.when !== "empty" })
-    var ranked = deps.Rank.rank(searchable, q).slice(0, RESULTS_LIMIT).map(function(x) { return x.row })
-    if (ranked.length) sections.push({ id: "results", title: "Results", rows: ranked })
-    dyn.filter(function(s) { return s.placement !== "inline" }).forEach(function(s) {
-      sections.push({ id: s.id, title: s.title, rows: s.rows })
-    })
-    return sections
-  }
-
-  var index = {}
-  rows.forEach(function(r) { index[r.key] = r })
-  var taken = {}
-  var favorites = []
-  state.favorites.forEach(function(key) {
-    if (index[key]) { favorites.push(index[key]); taken[key] = true }
-  })
-  var suggestions = deps.Rank.rank(rows.filter(function(r) { return !taken[r.key] && r.frecency > 0.05 }), "")
-    .slice(0, SUGGESTIONS).map(function(x) { return x.row })
-  suggestions.forEach(function(r) { taken[r.key] = true })
-  var visible = rows.filter(function(r) { return !taken[r.key] && r.when !== "searching" })
-  var commands = visible.filter(function(r) { return r.group !== "apps" })
-  var apps = visible.filter(function(r) { return r.group === "apps" }).sort(byTitle)
-
-  if (favorites.length) sections.push({ id: "favorites", title: "Favorites", rows: favorites })
-  if (suggestions.length) sections.push({ id: "suggestions", title: "Suggestions", rows: suggestions })
-  if (commands.length) sections.push({ id: "commands", title: "Commands", rows: commands })
-  if (apps.length) sections.push({ id: "apps", title: "Applications", rows: apps })
-  return sections
+  return nonEmpty(q ? searchView(rows, dynamic || [], q, deps) : idleView(rows, state, deps))
 }
 
-// A submenu view: its children in order, or, while searching, every row
-// whose key starts with `prefix`, ranked.
+// A pushed sub-list. Idle: its visible rows in order. Searching: all rows,
+// ranked.
 function submenuSections(rows, query, state, now, deps) {
+  var list = withState(rows, state, now, deps)
   var q = String(query || "").trim()
-  var list = decorate(rows, state, now, deps)
-  if (!q) {
-    var shown = list.filter(function(r) { return r.when !== "searching" })
-    return shown.length ? [{ id: "menu", title: "", rows: shown }] : []
-  }
-  var ranked = deps.Rank.rank(list, q).map(function(x) { return x.row })
-  return ranked.length ? [{ id: "results", title: "Results", rows: ranked }] : []
+  if (q) return nonEmpty([{ id: "results", title: "Results", rows: deps.Rank.rank(list, q).map(function(x) { return x.row }) }])
+  return nonEmpty([{ id: "menu", title: "", rows: list.filter(function(r) { return r.visibility !== "search-only" }) }])
 }
 
-// Flatten sections for the list view: header rows interleaved with items.
+// Flatten for the list view: header entries interleaved with numbered items.
 function flatten(sections) {
   var out = []
   var n = 0
-  for (var i = 0; i < sections.length; i++) {
-    var s = sections[i]
+  sections.forEach(function(s) {
     if (s.title) out.push({ header: true, title: s.title, section: s.id })
-    for (var j = 0; j < s.rows.length; j++) {
-      out.push({ header: false, row: s.rows[j], section: s.id, ordinal: n++ })
-    }
-  }
+    s.rows.forEach(function(r) { out.push({ header: false, row: r, section: s.id, ordinal: n++ }) })
+  })
   return out
 }
 

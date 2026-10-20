@@ -166,7 +166,7 @@ test("root sections, empty query", () => {
     { key: "app:b", title: "Beta", group: "apps" },
     { key: "cmd:x", title: "X", group: "commands" },
     { key: "cmd:y", title: "Y", group: "commands" },
-    { key: "cmd:deep", title: "Deep", group: "commands", when: "searching" },
+    { key: "cmd:deep", title: "Deep", group: "commands", visibility: "search-only" },
     { key: "cmd:hidden", title: "Hidden", group: "commands" },
   ]
   const out = Sections.rootSections(catalog, [], "", s, 0, deps)
@@ -180,7 +180,7 @@ test("root sections, empty query", () => {
 
 test("root sections, query with inline and bottom", () => {
   const s = State.empty()
-  const catalog = [{ key: "cmd:deep", title: "Deep", group: "commands", when: "searching" }, { key: "e", title: "Empty only", when: "empty" }]
+  const catalog = [{ key: "cmd:deep", title: "Deep", group: "commands", visibility: "search-only" }, { key: "e", title: "Empty only", visibility: "idle-only" }]
   const dynamic = [
     { id: "web", title: "Web", placement: "bottom", order: 9, rows: [{ key: "web:g", title: "Google" }] },
     { id: "calc", title: "Calculator", placement: "inline", order: 0, rows: [{ key: "calc:r", title: "4" }] },
