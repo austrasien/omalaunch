@@ -45,13 +45,23 @@ the repo's `plugins/` are installed there by `omalaunch install`:
 | Plugin | Rows |
 |---|---|
 | `calculator` | Arithmetic, currencies (ECB daily rates), units with `qalc`. |
-| `claude` | `? question` answered by the claude CLI. |
+| `claude` | `? question` answered by the claude CLI. `cc` / `resume` [words]: recent Claude Code sessions by title; Enter resumes in a terminal in the session's folder, Quick Look shows its last exchanges. |
 | `files` | `'term` or `find term`: files and folders under `~` (fd, hidden and ignored files skipped). Search filters: `<keyword> term` limited to extensions and folders (`~/.config/omalaunch/file-filters.json`; defaults `pdf`, `img`, `doc`, `vid`); a keyword with no term lists the newest matches of the past year. Recently used documents (`recently-used.xbel`) are searchable rows and a "Recent Documents" list. |
 | `clipboard` | `clip text` searches Omarchy's clipboard history; "Clipboard History" lists it. Enter pastes into the focused window, Ctrl+Enter copies. |
 | `music` | Play/Pause, Next, Previous for the active MPRIS player, with the current track. |
 | `dictionary` | `define word` (Wiktionary, English glosses for any language), `spell word` (hunspell). |
+| `emojis` | `:name` in French or English (Unicode CLDR names); Enter pastes, a bare `:` lists the last used. |
+| `snippets` | `;name` pastes `~/.config/omalaunch/snippets/name.*` with variables filled in (README); `{input:…}` asks in the launcher; `{shell:…}` runs only in executable snippet files; the text clipboard is restored after pasting. |
+| `web-keywords` | `<keyword> terms` opens a site search; defaults in `Keywords.js`, overrides in `~/.config/omalaunch/web.json` (`null` removes a default). |
+| `clock` | `heure tokyo`, `15h paris en tokyo`, `dans 3 jours`, `jusqu'au 25/12`, `timer 25 café` (an Omarchy reminder). |
+| `obsidian` | `o term` (titles, then content via ripgrep), `o` (newest notes), `o+ text` (a `- HH:mm text` line under `## Notes` in today's daily note, created from the daily template), `on Title` (new note in the new-note folder or `Inbox/`). |
 
 ## 4. Lists and sections
+
+When at least 60 % of the rows (and 4 or more) are images, PDFs, videos,
+slides or emojis, the list becomes a 5-column grid of thumbnails (rendered
+by `preview.sh` at 320 px and cached). Arrows move in two dimensions;
+`Ctrl+G` switches between grid and list until the launcher resets.
 
 - **Empty query:** Favorites (user order) → Suggestions (top 6 by frecency) →
   Commands → Applications.

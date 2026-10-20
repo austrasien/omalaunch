@@ -22,6 +22,12 @@ your scripts and plugins, ranked by what you actually use.
   images, PDFs, videos, text and Markdown, folders, clipboard entries.
 - **Search filters.** `pdf facture`, `img`, `doc`, `vid`: file searches tied
   to extensions and folders, editable in `~/.config/omalaunch/file-filters.json`.
+- **More plugins.** Emojis in French or English (`:feu`, `:fire`), snippets
+  (`;sig`, with `{date}`, `{clipboard}`, `{input:…}` and more), site searches
+  (`gh`, `yt`, `maps`, `wiki`, `deepl`, `amz`…), a world clock and timers
+  (`heure tokyo`, `dans 3 jours`, `timer 25 café`), Obsidian notes (`o`,
+  `o+`, `on`) and Claude Code sessions (`cc`).
+- **Grid view.** Images, PDFs and emojis show as thumbnails (`Ctrl+G` toggles).
 - **Shell and keys.** `> command` runs a command; any row can get its own
   Hyprland key (`Ctrl+Shift+H`); `Ctrl+L` shows a result in Large Type.
 - **Sync.** `omalaunch sync ~/Dropbox/omalaunch` keeps rankings and settings
@@ -61,6 +67,7 @@ omalaunch doctor
 | `Ctrl+Shift+H` | Give the row its own key |
 | `Ctrl+L` | Large Type |
 | `Shift` (tap) / `Ctrl+Y` | Quick Look (`Shift+↑/↓` scrolls it) |
+| `Ctrl+G` | Grid / list |
 | `Ctrl+Shift+C` | Copy |
 | `Alt+Shift+D` | Hide the row ("Show Disabled Items" restores it) |
 | `Esc` / `Shift+Esc` | Back / back to root |
@@ -90,3 +97,25 @@ omalaunch dev                   # reload on save
 
 MIT. omalaunch is an independent project, written from its own spec. It is
 not affiliated with Raycast or Omarchy.
+
+## Snippets
+
+Each file in `~/.config/omalaunch/snippets/` is a snippet named after the
+file: `sig.txt` is pasted with `;sig`. Variables:
+
+| Variable | Gives |
+|---|---|
+| `{date}`, `{date:DD/MM/YYYY}` | today (tokens: `YYYY YY MMMM MMM MM M DD D dddd ddd HH H mm ss WW`, `[text]` literal; French month and day names) |
+| `{date+3d}`, `{date-1w:dddd}` | a shifted date: `d` days, `w` weeks, `m` months, `y` years |
+| `{time}`, `{datetime}`, `{weekday}`, `{week}` | 17:42, 2026-10-20 17:42, mardi, 43 |
+| `{clipboard}`, `{selection}` | the clipboard text, the selected text |
+| `{cursor}` | where the cursor ends up after pasting |
+| `{input:Label}` | asks for a value in the launcher first |
+| `{hostname}`, `{user}`, `{fullname}`, `{email}` | machine, user, git name and email |
+| `{ip}`, `{publicip}` | local and public IPv4 |
+| `{uuid}`, `{random:8}` | a UUID, 8 random characters |
+| `{snippet:name}` | another snippet |
+| `{shell:command}` | the command's output; only in snippet files marked executable (`chmod +x`) |
+
+Unknown variables are left as they are.
+

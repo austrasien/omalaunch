@@ -178,7 +178,7 @@ PanelWindow {
     Item {
       id: listArea
       anchors { left: parent.left; right: parent.right; top: searchBar.bottom; topMargin: 1; leftMargin: window.borderWidth; rightMargin: window.borderWidth }
-      height: launcher.flat.length ? Math.min(window.listMax, list.contentHeight + window.px(12)) : window.px(90)
+      height: launcher.flat.length ? Math.min(window.listMax, (launcher.gridActive ? grid.contentHeight : list.contentHeight) + window.px(12)) : window.px(90)
 
       Text {
         anchors.centerIn: parent
@@ -189,8 +189,37 @@ PanelWindow {
         font.pixelSize: window.fontSize
       }
 
+      // Grid of thumbnails (Ctrl+G, or automatic for images and emojis).
+      GridView {
+        id: grid
+        visible: launcher.gridActive
+        anchors { fill: parent; topMargin: window.px(6); bottomMargin: window.px(6); leftMargin: window.px(8); rightMargin: window.px(8) }
+        clip: true
+        model: launcher.gridActive ? launcher.itemsOnly : []
+        cellWidth: Math.floor(width / launcher.gridColumns)
+        cellHeight: Math.round(cellWidth * 0.78 + window.px(16) + window.detailSize * 1.6 + window.px(12))
+        boundsBehavior: Flickable.StopAtBounds
+        currentIndex: launcher.gridActive ? launcher.selected : -1
+        highlightFollowsCurrentItem: false
+        onCurrentIndexChanged: if (currentIndex >= 0) positionViewAtIndex(currentIndex, GridView.Contain)
+
+        delegate: ResultTile {
+          required property var modelData
+          required property int index
+          width: grid.cellWidth
+          height: grid.cellHeight
+          theme: window
+          launcher: window.launcher
+          row: modelData.row
+          selected: index === launcher.selected
+          onClicked: { launcher.selected = index; launcher.runIndex(modelData.row, 0) }
+          onHovered: if (pointerGate.moved) launcher.selected = index
+        }
+      }
+
       ListView {
         id: list
+        visible: !launcher.gridActive
         anchors { fill: parent; topMargin: window.px(6); bottomMargin: window.px(6); leftMargin: window.px(8); rightMargin: window.px(8) }
         clip: true
         model: launcher.flat
@@ -346,6 +375,15 @@ PanelWindow {
     if (launcher.previewOpen && shift && !ctrl && (k === Qt.Key_Up || k === Qt.Key_Down)) { preview.scroll(k === Qt.Key_Up ? -4 : 4); return true }
     if (ctrl && !shift && k === Qt.Key_L) { if (row) launcher.runAction(row, { id: "omalaunch.large" }); return true }
 
+    if (ctrl && !shift && k === Qt.Key_G) { launcher.toggleGrid(); return true }
+    if (launcher.gridActive && !ctrl && !alt && !shift) {
+      var cols = launcher.gridColumns
+      var n = launcher.itemsOnly.length
+      if (k === Qt.Key_Left) { if (launcher.selected > 0) launcher.selected -= 1; return true }
+      if (k === Qt.Key_Right) { if (launcher.selected < n - 1) launcher.selected += 1; return true }
+      if (k === Qt.Key_Up) { if (launcher.selected >= cols) launcher.selected -= cols; return true }
+      if (k === Qt.Key_Down) { if (launcher.selected + cols < n) launcher.selected += cols; else if (launcher.selected < n - 1 && Math.floor(launcher.selected / cols) < Math.floor((n - 1) / cols)) launcher.selected = n - 1; return true }
+    }
     if (k === Qt.Key_Up) {
       if (ctrl && alt) { if (row) launcher.runAction(row, { id: "omalaunch.fav-up" }); return true }
       if (ctrl) { launcher.jumpSection(-1); return true }

@@ -1,14 +1,18 @@
 #!/bin/bash
-# preview.sh PATH CACHE_DIR — describe a file for Quick Look (docs/SPEC.md §6)
+# preview.sh PATH CACHE_DIR [SIZE] — describe a file for Quick Look (docs/SPEC.md §6)
 # as one JSON object:
 #   { kind: image|text|markdown|dir|info|missing, path, name, mime, size,
 #     mtime, image?, width?, height?, text?, count? }
 # PDFs, videos, office documents and images Qt cannot read become a PNG in
 # CACHE_DIR. Images carry their pixel size so the pane can match its shape.
+# With SIZE (grid thumbnails), images are always scaled down to SIZE px and
+# text is not read.
 
 set -uo pipefail
 path=$1
 cache=$2
+thumbsize=${3:-0}
+big=$(( thumbsize > 0 ? thumbsize : 1600 ))
 max_text=65536
 
 emit() { # emit KIND IMAGE TEXT [COUNT]
@@ -31,7 +35,7 @@ office_thumb() {
   mkdir -p "$dir"
   timeout 25 soffice -env:UserInstallation="file://$cache/lo-profile" --headless --convert-to png --outdir "$dir" "$path" >/dev/null 2>&1
   local out=("$dir"/*.png)
-  [[ -s ${out[0]} ]] && magick -- "${out[0]}" -resize '1800x1800>' "$thumb" 2>/dev/null
+  [[ -s ${out[0]} ]] && magick -- "${out[0]}" -resize "${big}x${big}>" "$thumb" 2>/dev/null
   rm -rf "$dir"
   [[ -s $thumb ]]
 }
@@ -49,21 +53,25 @@ if [[ -d $path ]]; then
 fi
 
 mkdir -p "$cache"
-thumb="$cache/$(printf '%s:%s' "$path" "$mtime" | md5sum | cut -c1-24).png"
+thumb="$cache/$(printf '%s:%s:%s' "$path" "$mtime" "$thumbsize" | md5sum | cut -c1-24).png"
 
 case $mime in
   image/png | image/jpeg | image/gif | image/webp | image/svg+xml | image/bmp)
+    if (( thumbsize > 0 )); then
+      [[ -s $thumb ]] || magick -- "$path[0]" -thumbnail "${thumbsize}x${thumbsize}>" "$thumb" 2>/dev/null
+      [[ -s $thumb ]] && emit image "$thumb" ""
+    fi
     emit image "$path" "" ;;
   image/*)
-    [[ -s $thumb ]] || magick -- "$path[0]" -resize '1600x1600>' "$thumb" 2>/dev/null
+    [[ -s $thumb ]] || magick -- "$path[0]" -resize "${big}x${big}>" "$thumb" 2>/dev/null
     [[ -s $thumb ]] && emit image "$thumb" ""
     emit info "" "" ;;
   application/pdf)
-    [[ -s $thumb ]] || pdftoppm -png -f 1 -l 1 -scale-to 1600 -singlefile -- "$path" "${thumb%.png}" 2>/dev/null
+    [[ -s $thumb ]] || pdftoppm -png -f 1 -l 1 -scale-to "$big" -singlefile -- "$path" "${thumb%.png}" 2>/dev/null
     [[ -s $thumb ]] && emit image "$thumb" ""
     emit info "" "" ;;
   video/*)
-    [[ -s $thumb ]] || ffmpegthumbnailer -i "$path" -o "$thumb" -s 1280 -q 8 2>/dev/null
+    [[ -s $thumb ]] || ffmpegthumbnailer -i "$path" -o "$thumb" -s "$(( thumbsize > 0 ? thumbsize : 1280 ))" -q 8 2>/dev/null
     [[ -s $thumb ]] && emit image "$thumb" ""
     emit info "" "" ;;
   application/vnd.openxmlformats-officedocument.* | application/vnd.oasis.opendocument.* | application/msword \
@@ -75,6 +83,8 @@ case ${path,,} in
   *.key | *.pages | *.numbers)
     { [[ -s $thumb ]] || office_thumb; } && emit image "$thumb" "" ;;
 esac
+
+(( thumbsize > 0 )) && emit info "" ""
 
 # Text: by mime, or a file with no NUL byte in its first 8 KiB.
 if [[ $mime == text/* || $mime == application/json || $mime == application/xml || $mime == *javascript* \

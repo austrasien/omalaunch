@@ -45,6 +45,9 @@ Item {
   property int historyIndex: -1
   property string largeText: ""
   property bool previewOpen: false
+  property string viewMode: "auto"     // "auto" | "list" | "grid" (Ctrl+G)
+  property bool gridActive: false
+  property var thumbs: ({})            // file path -> thumbnail path ("" when none)
   property var previewData: null
   property int previewSeq: 0
   readonly property string previewScript: String(Qt.resolvedUrl("services/preview.sh")).replace(/^file:\/\//, "")
@@ -138,6 +141,7 @@ Item {
   }
 
   function resetView() {
+    root.viewMode = "auto"
     root.stack = []
     root.query = ""
     host.query("")
@@ -187,6 +191,47 @@ Item {
     }
     lastBuiltQuery = root.query
     root.selected = idx
+    root.gridActive = root.viewMode === "grid" || (root.viewMode === "auto" && wantsGrid(items))
+  }
+
+  // ----------------------------------------------------------- grid view
+
+  readonly property int gridColumns: 5
+  readonly property var tileExtensions: /\.(png|jpe?g|gif|webp|svg|bmp|heic|avif|tiff?|pdf|mp4|mkv|mov|webm|avi|pptx?|key|odp)$/i
+
+  function isTile(row) {
+    if (!row) return false
+    if (row.emoji || row.tile) return true
+    if (row.iconSource && row.type === "Image") return true
+    var p = row.previewPath || row.path || ""
+    return !!p && root.tileExtensions.test(p)
+  }
+
+  // Images, emojis and the like show as a grid when they make up most of
+  // the results.
+  function wantsGrid(items) {
+    if (items.length < 4) return false
+    var tiles = 0
+    for (var i = 0; i < items.length; i++) if (isTile(items[i].row)) tiles++
+    return tiles / items.length >= 0.6
+  }
+
+  function toggleGrid() {
+    root.viewMode = root.gridActive ? "list" : "grid"
+    root.gridActive = !root.gridActive
+  }
+
+  // A small thumbnail for a file (cached for the session).
+  function thumbnail(path, callback) {
+    if (root.thumbs[path] !== undefined) { callback(root.thumbs[path]); return }
+    exec.capture(["bash", root.previewScript, path, root.previewCache, "320"], function(code, out) {
+      var image = ""
+      try { var d = JSON.parse(out); if (d.kind === "image") image = d.image } catch (e) {}
+      var next = root.thumbs
+      next[path] = image
+      root.thumbs = next
+      callback(image)
+    }, 30000)
   }
   property string lastBuiltQuery: ""
 
@@ -554,6 +599,7 @@ Item {
     function ping(): string { return root.started ? "ok" : "starting" }
     function query(text: string): string { root.show(JSON.stringify({ query: text })); return "shown" }
     function run(key: string): string { return root.runKey(key) }
+    function grid(): string { root.toggleGrid(); return root.gridActive ? "grid" : "list" }
     function quicklook(): string { root.togglePreview(); return root.previewOpen ? "open" : "closed" }
     function large(text: string): string { root.showLargeType(text); return "ok" }
     function reload(): string { root.reloadPlugins(); return "ok" }
