@@ -1,0 +1,9 @@
+{
+  "id": "obsidian",
+  "name": "Obsidian",
+  "version": "1.0.0",
+  "author": "austrasien",
+  "license": "MIT",
+  "description": "“o term” searches your Obsidian notes, “o+ text” adds to today's daily note, “on Title” creates a note.",
+  "entry": "Provider.qml"
+}
