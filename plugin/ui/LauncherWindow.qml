@@ -22,7 +22,9 @@ PanelWindow {
   readonly property color border: borderSpec.color
   readonly property int borderWidth: Math.round(Border.top(borderSpec))
   readonly property color accent: Color.accent
-  readonly property color muted: Color.muted
+  // Secondary text: the menu text colour at reduced strength. The theme's
+  // own muted colour is too dark to read on the menu background.
+  readonly property color muted: Qt.rgba(window.fg.r, window.fg.g, window.fg.b, 0.68)
   readonly property color selBg: Color.menu.selectedBackground
   readonly property color selFg: Color.menu.selectedText
   readonly property string font: Style.resolvedFontFamily
