@@ -78,7 +78,8 @@ PanelWindow {
     width: window.cardWidth
     height: window.searchHeight + listArea.height + window.footerHeight + 2 * window.borderWidth
     // With Quick Look open, card and preview are centred together.
-    x: Math.round((window.width - width - (preview.visible ? preview.width + window.previewGap : 0)) / 2)
+    x: Math.round((window.width - width - (launcher.previewOpen ? window.previewSize.w + window.previewGap : 0)) / 2)
+    Behavior on x { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
     // Centred at its tallest, so the search field stays put while the list
     // grows and shrinks with the results.
     y: Math.max(Style.gapsOut, Math.round((window.height - (window.searchHeight + window.listMax + window.footerHeight + 2 * window.borderWidth)) / 2))
@@ -274,16 +275,43 @@ PanelWindow {
   }
 
   // ---------------------------------------------------------- quick look
+  // The pane takes the shape of what it shows: an image, PDF page, slide or
+  // video frame is fitted to the free area keeping its proportions (tall
+  // pages use the full height, slides the full width); text and folders use
+  // the full height; anything else stays compact. The card moves left so the
+  // pair stays centred.
   readonly property int previewGap: px(12)
+  readonly property int cardMaxHeight: window.searchHeight + window.listMax + window.footerHeight + 2 * window.borderWidth
+  readonly property int previewMaxWidth: Math.max(px(320), window.width - window.cardWidth - window.previewGap - 4 * Style.gapsOut)
+  readonly property int previewMaxHeight: window.height - 4 * Style.gapsOut
+  readonly property int previewChromeHeight: window.searchHeight + 1 + 2 * window.borderWidth + 2 * px(16)
+  readonly property int previewChromeWidth: 2 * window.borderWidth + 2 * px(16)
+  readonly property var previewSize: {
+    var d = launcher.previewData
+    var kind = d ? d.kind : "none"
+    if (kind === "image" && d.width > 0 && d.height > 0) {
+      var ratio = d.width / d.height
+      var w = Math.min(window.previewMaxWidth - window.previewChromeWidth, (window.previewMaxHeight - window.previewChromeHeight) * ratio)
+      // Small images are not blown up past twice their size.
+      w = Math.min(w, d.width * 2)
+      return { w: Math.max(px(380), Math.round(w + window.previewChromeWidth)), h: Math.round(w / ratio + window.previewChromeHeight) }
+    }
+    if (kind === "text" || kind === "markdown" || kind === "dir")
+      return { w: Math.min(px(900), window.previewMaxWidth), h: window.previewMaxHeight }
+    return { w: Math.min(px(560), window.previewMaxWidth), h: window.cardMaxHeight }
+  }
+
   PreviewPane {
     id: preview
     theme: window
     visible: launcher.previewOpen
     preview: launcher.previewData
     x: card.x + card.width + window.previewGap
-    y: card.y
-    width: Math.max(0, Math.min(px(820), window.width - window.cardWidth - window.previewGap - 2 * Style.gapsOut))
-    height: window.searchHeight + window.listMax + window.footerHeight + 2 * window.borderWidth
+    y: Math.round((window.height - height) / 2)
+    width: window.previewSize.w
+    height: window.previewSize.h
+    Behavior on width { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+    Behavior on height { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
   }
 
 

@@ -414,6 +414,7 @@ Item {
 
   function togglePreview() {
     root.previewOpen = !root.previewOpen
+    root.previewData = null
     if (root.previewOpen) updatePreview()
   }
 
@@ -431,11 +432,13 @@ Item {
     }
     var path = row.previewPath || row.path || ""
     if (!path) { root.previewData = { kind: "none", name: row.title }; return }
-    root.previewData = { kind: "loading", name: path.slice(path.lastIndexOf("/") + 1) }
+    // Keep showing the previous file until the new one is ready, so the pane
+    // does not flicker between sizes.
+    if (!root.previewData) root.previewData = { kind: "loading", name: path.slice(path.lastIndexOf("/") + 1) }
     exec.capture(["bash", root.previewScript, path, root.previewCache], function(code, out) {
       if (seq !== root.previewSeq) return
       try { root.previewData = JSON.parse(out) } catch (e) { root.previewData = { kind: "info", name: path.slice(path.lastIndexOf("/") + 1) } }
-    }, 15000)
+    }, 30000)
   }
 
   function showLargeType(text) {

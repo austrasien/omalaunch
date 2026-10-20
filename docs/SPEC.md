@@ -105,7 +105,7 @@ alias. For a query `q` (lower-cased, accents stripped):
 | `Ctrl+Shift+A` | set an alias for the row |
 | `Ctrl+Shift+H` | give the row its own Hyprland key (typed as `SUPER + SHIFT + B`; empty removes it) |
 | `Ctrl+L` | show the row's copy text (else its title) in Large Type; any key closes it |
-| `Shift` (tap) / `Ctrl+Y` | Quick Look: a pane beside the list previews the selected row's file (`previewPath` or `path`: images, PDF first page, video frame, text, Markdown, folder listing, else file info) or its `previewText`; it follows the selection, `Shift+↑/↓` scrolls it, `Esc` closes it |
+| `Shift` (tap) / `Ctrl+Y` | Quick Look: a pane beside the list previews the selected row's file (`previewPath` or `path`: images, PDF first page, video frame, office document or slide via LibreOffice, text, Markdown, folder listing, else file info) or its `previewText`. The pane takes the content's proportions within the free screen area (portrait pages fill the height, slides the width), text and folders fill the height, and the card moves left so both stay centred; it follows the selection, `Shift+↑/↓` scrolls it, `Esc` closes it |
 | `Esc` | close the action panel, else leave the submenu, else clear the query, else close |
 | `Shift+Esc` | back to root |
 | `Ctrl+A/E/B/F/W/U` | emacs-style editing in the field |

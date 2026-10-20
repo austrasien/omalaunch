@@ -2,8 +2,9 @@
 # preview.sh PATH CACHE_DIR — describe a file for Quick Look (docs/SPEC.md §6)
 # as one JSON object:
 #   { kind: image|text|markdown|dir|info|missing, path, name, mime, size,
-#     mtime, image?, text?, count? }
-# PDFs, videos and images Qt cannot read become a PNG in CACHE_DIR.
+#     mtime, image?, width?, height?, text?, count? }
+# PDFs, videos, office documents and images Qt cannot read become a PNG in
+# CACHE_DIR. Images carry their pixel size so the pane can match its shape.
 
 set -uo pipefail
 path=$1
@@ -11,11 +12,28 @@ cache=$2
 max_text=65536
 
 emit() { # emit KIND IMAGE TEXT [COUNT]
+  local dims="" w="" h=""
+  [[ $1 == image ]] && dims=$(magick identify -format '%w %h' -- "$2[0]" 2>/dev/null) && read -r w h <<<"$dims"
   jq -n --arg kind "$1" --arg path "$path" --arg name "${path##*/}" --arg mime "${mime:-}" \
     --arg size "${size:-0}" --arg mtime "${mtime:-0}" --arg image "$2" --arg text "$3" --arg count "${4:-}" \
+    --arg w "$w" --arg h "$h" \
     '{kind: $kind, path: $path, name: $name, mime: $mime, size: ($size|tonumber), mtime: ($mtime|tonumber),
-      image: $image, text: $text} + (if $count == "" then {} else {count: ($count|tonumber)} end)'
+      image: $image, text: $text} + (if $count == "" then {} else {count: ($count|tonumber)} end)
+      + (if $w == "" or $h == "" then {} else {width: ($w|tonumber), height: ($h|tonumber)} end)'
   exit 0
+}
+
+# First page or slide of an office document, through LibreOffice (its own
+# profile, so a running LibreOffice is not disturbed).
+office_thumb() {
+  command -v soffice >/dev/null || return 1
+  local dir="$cache/office-$$"
+  mkdir -p "$dir"
+  timeout 25 soffice -env:UserInstallation="file://$cache/lo-profile" --headless --convert-to png --outdir "$dir" "$path" >/dev/null 2>&1
+  local out=("$dir"/*.png)
+  [[ -s ${out[0]} ]] && magick -- "${out[0]}" -resize '1800x1800>' "$thumb" 2>/dev/null
+  rm -rf "$dir"
+  [[ -s $thumb ]]
 }
 
 [[ -e $path ]] || emit missing "" ""
@@ -48,6 +66,14 @@ case $mime in
     [[ -s $thumb ]] || ffmpegthumbnailer -i "$path" -o "$thumb" -s 1280 -q 8 2>/dev/null
     [[ -s $thumb ]] && emit image "$thumb" ""
     emit info "" "" ;;
+  application/vnd.openxmlformats-officedocument.* | application/vnd.oasis.opendocument.* | application/msword \
+  | application/vnd.ms-excel | application/vnd.ms-powerpoint | application/vnd.apple.keynote | application/rtf)
+    { [[ -s $thumb ]] || office_thumb; } && emit image "$thumb" ""
+    emit info "" "" ;;
+esac
+case ${path,,} in
+  *.key | *.pages | *.numbers)
+    { [[ -s $thumb ]] || office_thumb; } && emit image "$thumb" "" ;;
 esac
 
 # Text: by mime, or a file with no NUL byte in its first 8 KiB.
