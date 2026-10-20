@@ -1,0 +1,9 @@
+{
+  "id": "ssh",
+  "name": "SSH Hosts",
+  "version": "1.0.0",
+  "author": "austrasien",
+  "license": "MIT",
+  "description": "Hosts from ~/.ssh/config (and its Include files): “ssh name” connects in a terminal.",
+  "entry": "Provider.qml"
+}
