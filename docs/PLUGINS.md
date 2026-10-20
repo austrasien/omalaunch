@@ -126,3 +126,36 @@ omarchy-restart-waybar && echo "Bar restarted ${1:-}"
 Modes: `silent` (default), `toast` (notification with the last line of
 output), `terminal` (floating terminal). With `argument`, type the title, a
 space, then the argument; it arrives as `$1`.
+
+### Script filters
+
+A script filter lists results as you type. Give it `mode filter` and a
+`keyword`; while the search is `<keyword> text`, omalaunch runs the script
+with `text` as `$1` (also with an empty `$1` for the bare keyword) and shows
+the items it prints:
+
+```bash
+#!/bin/bash
+# @omalaunch.title Search Key Bindings
+# @omalaunch.mode filter
+# @omalaunch.keyword keys
+if [[ $1 == --run ]]; then printf '%s' "$2" | wl-copy; echo "Copied $2"; exit; fi
+hyprctl binds -j | jq --arg q "$1" '{items: [.[] | select(.description | test($q; "i"))
+  | {title: .description, subtitle: .key, arg: .key}]}'
+```
+
+Print a JSON array of items, or `{"items": [...]}`; at most 50 are shown.
+
+| Item field | Meaning |
+|---|---|
+| `title` | Required. A plain string item is taken as its title. |
+| `subtitle`, `icon`, `type` | As for rows. |
+| `arg` | Passed back on Enter (default: the title). |
+| `open` | A URL or path to open on Enter instead of running the script. |
+| `copy` | Text for Ctrl+Enter / Ctrl+Shift+C (default: `arg`). |
+
+On Enter, an item with `open` opens it; otherwise the script runs again as
+`<script> --run <arg>` and its last line of output becomes a notification.
+A non-zero exit or output that is not JSON shows as an error row.
+`examples/scripts/hypr-keys` is a complete example; link it into
+`~/.config/omalaunch/scripts/` to try it.

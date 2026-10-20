@@ -34,12 +34,22 @@ Everything in the list comes from a provider (see `PLUGINS.md`). Built in:
 |---|---|
 | `apps` | Desktop applications from the shell's app library (respects Omarchy's hidden entries). |
 | `omarchy` | Every Omarchy menu entry from `$OMARCHY_PATH/default/omarchy/omarchy-menu.jsonc`, overlaid by `~/.config/omarchy/extensions/omarchy-menu.jsonc`. Breadcrumb as subtitle. `when` hides a row, `checked` adds ✓, `disabled` greys it. Submenus open in place (Esc goes back). Runtime providers `fonts` and `power-profiles` fill their submenus. |
-| `scripts` | Executables in `~/.config/omalaunch/scripts/` with a header (§7). |
+| `scripts` | Executables in `~/.config/omalaunch/scripts/` with a header (§7); filter scripts also answer `<keyword> text`. |
+| `shell` | `> command` runs the command in a floating terminal (Ctrl+Enter: in the background). |
 | `web` | Fallback rows "Search Google / DuckDuckGo for …" at the bottom while searching. |
 | `builtin` | Launcher commands: open the original Omarchy menu, reload plugins, open the scripts folder. |
 
 User plugins live in `~/.config/omalaunch/plugins/<id>/`. Bundled plugins in
-the repo's `plugins/` are installed there by `omalaunch install`.
+the repo's `plugins/` are installed there by `omalaunch install`:
+
+| Plugin | Rows |
+|---|---|
+| `calculator` | Arithmetic, currencies (ECB daily rates), units with `qalc`. |
+| `claude` | `? question` answered by the claude CLI. |
+| `files` | `'term` or `find term`: files and folders under `~` (fd, hidden and ignored files skipped). Recently used documents (`recently-used.xbel`) are searchable rows and a "Recent Documents" list. |
+| `clipboard` | `clip text` searches Omarchy's clipboard history; "Clipboard History" lists it. Enter pastes into the focused window, Ctrl+Enter copies. |
+| `music` | Play/Pause, Next, Previous for the active MPRIS player, with the current track. |
+| `dictionary` | `define word` (Wiktionary, English glosses for any language), `spell word` (hunspell). |
 
 ## 4. Lists and sections
 
@@ -93,12 +103,14 @@ alias. For a query `q` (lower-cased, accents stripped):
 | `Ctrl+Shift+C` | copy (the row's copy text, else its title) |
 | `Alt+Shift+D` | disable (hide) the row |
 | `Ctrl+Shift+A` | set an alias for the row |
+| `Ctrl+Shift+H` | give the row its own Hyprland key (typed as `SUPER + SHIFT + B`; empty removes it) |
+| `Ctrl+L` | show the row's copy text (else its title) in Large Type; any key closes it |
 | `Esc` | close the action panel, else leave the submenu, else clear the query, else close |
 | `Shift+Esc` | back to root |
 | `Ctrl+A/E/B/F/W/U` | emacs-style editing in the field |
 
-Generic actions available on every catalog row: favourite, alias, copy title,
-disable, reset ranking. Disabled rows can be restored from the builtin
+Generic actions available on every catalog row: favourite, alias, hotkey,
+copy title, Large Type, disable, reset ranking. Query rows get copy and Large Type. Disabled rows can be restored from the builtin
 command "Show disabled items".
 
 When closed, the launcher keeps its state for 90 s (reopen where you were),
@@ -113,15 +125,25 @@ Keys: `title` (required), `mode` (`silent` default, `toast`, `terminal`),
 title is passed as `$1`). `silent` runs detached; `toast` shows the last line
 of stdout; `terminal` runs in a floating terminal and waits for a key.
 
+`mode filter` with `keyword <word>` makes a script filter: while the query is
+`<word> text`, the script runs with `text` as `$1` and prints JSON items
+(`PLUGINS.md`), shown inline. Enter opens an item's `open` target or runs the
+script again as `<script> --run <arg>`.
+
 ## 8. State
 
 `~/.local/share/omalaunch/state.json`: frecency, learned terms, aliases,
 favourites, disabled ids, query history, zoom. Written debounced; a corrupt
-file is moved aside and replaced.
+file is moved aside and replaced. `omalaunch sync DIR` moves the whole
+directory into DIR and leaves a symlink (the directory, not the file, because
+writes are atomic renames). Per-row hotkeys: `~/.local/state/omalaunch/hotkeys.tsv`.
 
 ## 9. CLI (`omalaunch`)
 
 `install` (link the plugin and bundled plugins, enable), `uninstall`,
 `reload` (force Quickshell to reload the QML), `dev` (reload on save),
 `doctor`, `bind` (write `~/.config/hypr/omalaunch.lua` with a key),
-`toggle|show|hide`, `run <id>`, `query <text>` (open with text).
+`hotkey set|unset|list` (per-row keys in `~/.config/hypr/omalaunch-hotkeys.lua`,
+checked against existing Hyprland binds), `sync DIR|off`,
+`toggle|show|hide`, `run <id>`, `query <text>` (open with text),
+`search <text>` (print the rows a query returns, without opening).

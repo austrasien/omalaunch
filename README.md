@@ -14,15 +14,23 @@ your scripts and plugins, ranked by what you actually use.
   ([docs/PLUGINS.md](docs/PLUGINS.md)); script commands are any executable
   with a header.
 - **Bundled plugins.** Calculator with currency conversion (ECB daily rates,
-  units via `qalc` when installed) and Claude (`? your question`).
+  units via `qalc` when installed), Claude (`? your question`), files
+  (`'name` or `find name`, plus recent documents), clipboard history
+  (`clip text`), music controls, and a dictionary (`define word`,
+  `spell word`).
+- **Shell and keys.** `> command` runs a command; any row can get its own
+  Hyprland key (`Ctrl+Shift+H`); `Ctrl+L` shows a result in Large Type.
+- **Sync.** `omalaunch sync ~/Dropbox/omalaunch` keeps rankings and settings
+  in a synced folder.
 - **Native.** No daemon, no Electron. Colours follow `omarchy theme set` live.
 
 Behaviour is specified in [docs/SPEC.md](docs/SPEC.md).
 
 ## Install
 
-Requires Omarchy 4 (`omarchy-shell`). Optional: `libqalculate` for units in
-the calculator, the `claude` CLI for the Claude plugin.
+Requires Omarchy 4 (`omarchy-shell`) and `fd` for file search. Optional:
+`libqalculate` for units in the calculator, the `claude` CLI for the Claude
+plugin, `hunspell-fr` / `hunspell-en_us` for `spell`.
 
 ```sh
 git clone https://github.com/austrasien/omalaunch.git ~/src/omalaunch
@@ -46,6 +54,8 @@ omalaunch doctor
 | `↑` on an empty search | Previous queries |
 | `Ctrl+Shift+F` | Favourite (`Ctrl+Alt+↑/↓` reorders) |
 | `Ctrl+Shift+A` | Set an alias |
+| `Ctrl+Shift+H` | Give the row its own key |
+| `Ctrl+L` | Large Type |
 | `Ctrl+Shift+C` | Copy |
 | `Alt+Shift+D` | Hide the row ("Show Disabled Items" restores it) |
 | `Esc` / `Shift+Esc` | Back / back to root |
@@ -60,6 +70,8 @@ omalaunch run apps:firefox      # run a row by key
 omalaunch search lock           # print what a search returns
 omalaunch plugins               # loaded providers and plugin errors
 omalaunch reload | dev          # reload QML once / on every save
+omalaunch hotkey set "SUPER + B" apps:firefox   # a key for one row; hotkey list | unset
+omalaunch sync ~/Dropbox/omalaunch              # keep settings in a synced folder; sync off
 ```
 
 ## Development
