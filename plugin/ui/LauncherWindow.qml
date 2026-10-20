@@ -156,9 +156,12 @@ PanelWindow {
           if (actionPanel.visible) { if (actionPanel.handleKey(event)) event.accepted = true; return }
           if (window.handleKey(event)) event.accepted = true
         }
-        // A Shift tap on its own toggles Quick Look.
+        // A Shift tap on its own toggles Quick Look. Some layouts report the
+        // release under another key code (Caps Lock here), so any release
+        // right after a lone Shift press counts.
         Keys.onReleased: function(event) {
-          if (event.key === Qt.Key_Shift && window.shiftAlone && !actionPanel.visible && !launcher.promptMode) launcher.togglePreview()
+          if (event.isAutoRepeat) return
+          if (window.shiftAlone && !actionPanel.visible && !launcher.promptMode) launcher.togglePreview()
           window.shiftAlone = false
         }
       }
