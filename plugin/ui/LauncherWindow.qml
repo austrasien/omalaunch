@@ -16,7 +16,11 @@ PanelWindow {
 
   readonly property color bg: Color.menu.background
   readonly property color fg: Color.menu.text
-  readonly property color border: Color.menu.border
+  // Same frame as the Omarchy menu: theme border colour, Style.space(2) wide
+  // unless the theme sets its own width.
+  readonly property var borderSpec: Border.surfaceSpec("menu", "border", Color.menu.border, Math.max(1, Style.space(2)))
+  readonly property color border: borderSpec.color
+  readonly property int borderWidth: Math.round(Border.top(borderSpec))
   readonly property color accent: Color.accent
   readonly property color muted: Color.muted
   readonly property color selBg: Color.menu.selectedBackground
@@ -67,14 +71,14 @@ PanelWindow {
   Rectangle {
     id: card
     width: window.cardWidth
-    height: window.searchHeight + listArea.height + window.footerHeight + 2
+    height: window.searchHeight + listArea.height + window.footerHeight + 2 * window.borderWidth
     x: Math.round((window.width - width) / 2)
     // Centred at its tallest, so the search field stays put while the list
     // grows and shrinks with the results.
-    y: Math.max(Style.gapsOut, Math.round((window.height - (window.searchHeight + window.listMax + window.footerHeight + 2)) / 2))
+    y: Math.max(Style.gapsOut, Math.round((window.height - (window.searchHeight + window.listMax + window.footerHeight + 2 * window.borderWidth)) / 2))
     color: window.bg
     border.color: window.border
-    border.width: Math.max(1, Style.normalBorderWidth)
+    border.width: window.borderWidth
     radius: Style.cornerRadius
     clip: true
 
@@ -83,7 +87,7 @@ PanelWindow {
     // ------------------------------------------------------------ search
     Item {
       id: searchBar
-      anchors { left: parent.left; right: parent.right; top: parent.top }
+      anchors { left: parent.left; right: parent.right; top: parent.top; margins: window.borderWidth }
       height: window.searchHeight
 
       Text {
@@ -147,7 +151,7 @@ PanelWindow {
     }
 
     Rectangle {
-      anchors { left: parent.left; right: parent.right; top: searchBar.bottom }
+      anchors { left: parent.left; right: parent.right; top: searchBar.bottom; leftMargin: window.borderWidth; rightMargin: window.borderWidth }
       height: 1
       color: Qt.rgba(window.fg.r, window.fg.g, window.fg.b, 0.10)
     }
@@ -155,7 +159,7 @@ PanelWindow {
     // -------------------------------------------------------------- list
     Item {
       id: listArea
-      anchors { left: parent.left; right: parent.right; top: searchBar.bottom; topMargin: 1 }
+      anchors { left: parent.left; right: parent.right; top: searchBar.bottom; topMargin: 1; leftMargin: window.borderWidth; rightMargin: window.borderWidth }
       height: launcher.flat.length ? Math.min(window.listMax, list.contentHeight + window.px(12)) : window.px(90)
 
       Text {
@@ -203,7 +207,7 @@ PanelWindow {
     // ------------------------------------------------------------ footer
     Rectangle {
       id: footer
-      anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: 1 }
+      anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: window.borderWidth }
       height: window.footerHeight
       color: Qt.rgba(window.fg.r, window.fg.g, window.fg.b, 0.04)
 

@@ -18,7 +18,7 @@ Rectangle {
   height: Math.min(theme.px(380), header.height + listCol.implicitHeight + theme.px(16))
   color: theme.bg
   border.color: theme.border
-  border.width: Math.max(1, Style.normalBorderWidth)
+  border.width: theme.borderWidth
   radius: Style.cornerRadius
   clip: true
 
