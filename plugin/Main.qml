@@ -36,7 +36,9 @@ Item {
   property int selected: 0             // index into itemsOnly
   property string toastText: ""
   property bool actionPanelOpen: false
-  property string promptMode: ""       // "" | "alias"
+  property string promptMode: ""       // "" | "alias" | "hotkey"
+  property var hotkeys: ({})           // row key -> combo, from `omalaunch hotkey`
+  readonly property string cli: Quickshell.env("HOME") + "/.local/bin/omalaunch"
   property var promptRow: null
   property int historyIndex: -1
   property string largeText: ""
@@ -98,6 +100,7 @@ Item {
     root.historyIndex = -1
     root.opened = true
     host.opened()
+    loadHotkeys()
     scheduleRebuild()
     window.focusSearch(true)
   }
@@ -278,6 +281,8 @@ Item {
       list.push({ id: "omalaunch.fav-down", title: "Move Favorite Down", shortcut: "⌃⌥↓" })
     }
     list.push({ id: "omalaunch.alias", title: row.alias ? "Change Alias (" + row.alias + ")" : "Set Alias", shortcut: "⌃⇧A" })
+    var hk = root.hotkeys[row.key]
+    list.push({ id: "omalaunch.hotkey", title: hk ? "Change Hotkey (" + hk + ")" : "Set Hotkey", shortcut: "⌃⇧H" })
     list.push({ id: "omalaunch.copy", title: "Copy", shortcut: "⌃⇧C" })
     list.push({ id: "omalaunch.reset", title: "Reset Ranking", shortcut: "" })
     list.push({ id: "omalaunch.disable", title: "Disable Item", shortcut: "⌥⇧D" })
@@ -303,6 +308,7 @@ Item {
     case "omalaunch.fav-up": store.update(function(s) { State.moveFavorite(s, row.key, -1) }); return
     case "omalaunch.fav-down": store.update(function(s) { State.moveFavorite(s, row.key, 1) }); return
     case "omalaunch.alias": beginAlias(row); return
+    case "omalaunch.hotkey": beginHotkey(row); return
     case "omalaunch.copy":
       exec.detached(["wl-copy", "--", String(row.copy !== undefined && row.copy !== "" ? row.copy : row.title)])
       toast("Copied")
@@ -355,7 +361,37 @@ Item {
     window.focusSearch(true)
   }
 
+  function beginHotkey(row) {
+    root.promptRow = row
+    root.promptMode = "hotkey"
+    window.syncSearchText(root.hotkeys[row.key] || "")
+    window.focusSearch(true)
+  }
+
+  function loadHotkeys() {
+    exec.capture(["cat", Quickshell.env("HOME") + "/.local/state/omalaunch/hotkeys.tsv"], function(code, out) {
+      var map = ({})
+      String(out || "").split("\n").forEach(function(line) {
+        var f = line.split("\t")
+        if (f.length >= 2 && f[0] && f[1]) map[f[1]] = f[0]
+      })
+      root.hotkeys = map
+    })
+  }
+
+  // `omalaunch hotkey` validates the keys, checks Hyprland for conflicts
+  // and rewrites the bindings file; its last line is the toast.
+  function saveHotkey(row, combo) {
+    var argv = String(combo).trim() ? [root.cli, "hotkey", "set", String(combo).trim(), row.key, row.title] : [root.cli, "hotkey", "unset", row.key]
+    exec.capture(argv, function(code, out, err) {
+      var msg = String((code === 0 ? out : err) || "").trim().split("\n").pop().replace(/^omalaunch: /, "")
+      toast(msg || (code === 0 ? "Hotkey saved" : "Could not save the hotkey"))
+      loadHotkeys()
+    }, 10000)
+  }
+
   function commitPrompt(text) {
+    if (root.promptMode === "hotkey" && root.promptRow) saveHotkey(root.promptRow, text)
     if (root.promptMode === "alias" && root.promptRow) {
       var key = root.promptRow.key
       store.update(function(s) { State.setAlias(s, key, text) })

@@ -17,6 +17,8 @@ readonly USER_SCRIPTS="$CFG/omalaunch/scripts"
 readonly STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/omalaunch"
 readonly HYPR="$CFG/hypr"
 readonly KEYFILE="$HYPR/omalaunch.lua"
+readonly HOTKEYFILE="$HYPR/omalaunch-hotkeys.lua"
+readonly HOTKEYS="$STATE_DIR/hotkeys.tsv"
 readonly BIN_LINK="$HOME/.local/bin/omalaunch"
 
 fail() { printf 'omalaunch: %s\n' "$*" >&2; exit 1; }
@@ -97,6 +99,7 @@ do_uninstall() {
   [[ -L $BIN_LINK && $(readlink -f "$BIN_LINK") == "$ME" ]] && rm -f "$BIN_LINK"
   omarchy-shell -q shell rescanPlugins
   [[ -f $KEYFILE ]] && note "key binding left in place; remove it with: omalaunch unbind"
+  [[ -s $HOTKEYS ]] && note "per-item hotkeys left in place; see: omalaunch hotkey list"
   note "rankings and settings kept in ~/.local/share/omalaunch"
 }
 
@@ -172,6 +175,86 @@ do_unbind() {
   note "key binding removed"
 }
 
+# ----------------------------------------------------- per-row hotkeys
+#
+# hotkeys.tsv holds "COMBO<TAB>ROW KEY<TAB>TITLE" lines; omalaunch-hotkeys.lua
+# is generated from it, one bind per line running `omalaunch run <row key>`.
+
+lua_string() { # a Lua double-quoted string literal
+  local s=${1//\\/\\\\}
+  s=${s//\"/\\\"}
+  printf '"%s"' "$s"
+}
+
+shell_word() { printf "'%s'" "${1//\'/\'\\\'\'}"; }
+
+write_hotkeys() {
+  local combo key title
+  {
+    printf '%s\n' "-- omalaunch hotkeys (generated from $HOTKEYS by \`omalaunch hotkey\`; do not edit)"
+    while IFS=$'\t' read -r combo key title; do
+      [[ -n $combo && -n $key ]] || continue
+      printf 'o.bind(%s, %s, hl.dsp.exec_cmd(%s))\n' "$(lua_string "$combo")" "$(lua_string "omalaunch: $title")" \
+        "$(lua_string "$BIN_LINK run $(shell_word "$key")")"
+    done <"$HOTKEYS"
+  } >"$HOTKEYFILE"
+  if ! grep -q 'require("hypr.omalaunch-hotkeys")' "$HYPR/hyprland.lua"; then
+    printf '\nrequire("hypr.omalaunch-hotkeys") -- omalaunch per-item hotkeys\n' >>"$HYPR/hyprland.lua"
+  fi
+  hyprctl reload >/dev/null
+  local errors
+  errors=$(hyprctl configerrors 2>/dev/null | grep -v '^$' || true)
+  [[ -z $errors ]] || note "hyprland reports: $errors"
+}
+
+# Normalise "super+shift+b" to "SUPER + SHIFT + B".
+normal_combo() {
+  local -a parts out=()
+  local p
+  IFS='+' read -ra parts <<<"$1"
+  for p in "${parts[@]}"; do
+    p=$(tr -d ' ' <<<"$p")
+    [[ -n $p ]] || continue
+    case ${p^^} in SUPER|WIN|LOGO|MOD4|ALT|MOD1|CTRL|CONTROL|SHIFT) out+=("${p^^}") ;; *) out+=("$p") ;; esac
+  done
+  local IFS='+'
+  printf '%s' "${out[*]}" | sed 's/+/ + /g'
+}
+
+do_hotkey() {
+  local sub=${1:-list}; shift || true
+  mkdir -p "$STATE_DIR"; touch "$HOTKEYS"
+  [[ -f $HYPR/hyprland.lua ]] || fail "this needs a Lua Hyprland config ($HYPR/hyprland.lua)"
+  case $sub in
+    list)
+      awk -F'\t' 'NF >= 2 { printf "%-24s %s  (%s)\n", $1, $2, $3 }' "$HOTKEYS" ;;
+    set)
+      (( $# >= 2 )) || fail "usage: omalaunch hotkey set \"SUPER + B\" <row key> [title]"
+      local combo key=$2 title=${3:-$2} sig taken
+      combo=$(normal_combo "$1")
+      sig=$(key_signature "$combo") || fail "could not read a key in \"$1\""
+      [[ ${sig%% *} != 0 ]] || fail "add at least one modifier (SUPER, ALT, CTRL, SHIFT)"
+      taken=$(hyprctl binds -j | jq -r --arg sig "$sig" \
+        '.[] | select(((.modmask|tostring) + " " + (.key|ascii_upcase)) == $sig) | "\(.description // .dispatcher) \(.arg)"' | grep -v "omalaunch" || true)
+      [[ -z $taken ]] || fail "$combo is already taken by: $taken"
+      # One hotkey per row and one row per combo.
+      awk -F'\t' -v k="$key" 'BEGIN { OFS = FS } $2 != k { print }' "$HOTKEYS" |
+        while IFS=$'\t' read -r c k t; do
+          [[ $(key_signature "$c") == "$sig" ]] || printf '%s\t%s\t%s\n' "$c" "$k" "$t"
+        done >"$HOTKEYS.new"
+      printf '%s\t%s\t%s\n' "$combo" "$key" "${title//$'\t'/ }" >>"$HOTKEYS.new"
+      mv "$HOTKEYS.new" "$HOTKEYS"
+      write_hotkeys
+      note "$combo runs $title" ;;
+    unset)
+      (( $# >= 1 )) || fail "usage: omalaunch hotkey unset <row key>"
+      awk -F'\t' -v k="$1" '$2 != k' "$HOTKEYS" >"$HOTKEYS.new" && mv "$HOTKEYS.new" "$HOTKEYS"
+      write_hotkeys
+      note "hotkey removed" ;;
+    *) fail "usage: omalaunch hotkey list | set COMBO KEY [TITLE] | unset KEY" ;;
+  esac
+}
+
 # ---------------------------------------------------------------- doctor
 
 do_doctor() {
@@ -214,6 +297,8 @@ omalaunch — keyboard launcher for Omarchy
 
   install | uninstall      link / unlink the plugin, bundled plugins and this CLI
   bind [KEYS]              bind KEYS (default "ALT + SPACE"); unbind removes it
+  hotkey set KEYS ROW      give one row its own key (also Ctrl+Shift+H in the launcher)
+  hotkey unset ROW | list
   reload | dev             reload the plugin once / on every save
   doctor                   check the setup
 EOF
@@ -233,6 +318,7 @@ case $cmd in
   dev) do_dev ;;
   bind) do_bind "$*" ;;
   unbind) do_unbind ;;
+  hotkey) do_hotkey "$@" ;;
   doctor) do_doctor ;;
   help|-h|--help) do_help ;;
   *) do_help >&2; exit 1 ;;

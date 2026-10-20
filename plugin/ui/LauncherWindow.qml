@@ -98,7 +98,7 @@ PanelWindow {
       Text {
         id: lead
         anchors { left: parent.left; leftMargin: window.px(20); verticalCenter: parent.verticalCenter }
-        text: launcher.promptMode === "alias" ? "󰌌" : (launcher.stack.length ? "\uf060" : "\uf002")
+        text: launcher.promptMode ? "󰌌" : (launcher.stack.length ? "\uf060" : "\uf002")
         color: launcher.stack.length || launcher.promptMode ? window.accent : window.muted
         font.family: window.font
         font.pixelSize: window.iconSize
@@ -136,6 +136,7 @@ PanelWindow {
           anchors.fill: parent
           visible: search.text.length === 0
           text: launcher.promptMode === "alias" ? "Alias for " + (launcher.promptRow ? launcher.promptRow.title : "") + " (empty removes it)"
+            : launcher.promptMode === "hotkey" ? "Keys for " + (launcher.promptRow ? launcher.promptRow.title : "") + ", e.g. SUPER + SHIFT + B (empty removes them)"
             : (launcher.stack.length ? "Search " + launcher.stack[launcher.stack.length - 1].title + "…" : "Search apps, commands, plugins…")
           color: window.muted
           font: search.font
@@ -306,6 +307,7 @@ PanelWindow {
     if (ctrl && shift && k === Qt.Key_F) { if (row) launcher.runAction(row, { id: "omalaunch.favorite" }); return true }
     if (ctrl && shift && k === Qt.Key_C) { if (row) launcher.runAction(row, { id: "omalaunch.copy" }); return true }
     if (ctrl && shift && k === Qt.Key_A) { if (row && launcher.isCatalogRow(row)) launcher.beginAlias(row); return true }
+    if (ctrl && shift && k === Qt.Key_H) { if (row && launcher.isCatalogRow(row)) launcher.beginHotkey(row); return true }
     if (alt && shift && k === Qt.Key_D) { if (row && launcher.isCatalogRow(row)) launcher.runAction(row, { id: "omalaunch.disable" }); return true }
 
     if (ctrl && (k === Qt.Key_Plus || k === Qt.Key_Equal)) { launcher.setZoom(window.z + 0.1); return true }
