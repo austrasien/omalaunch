@@ -1,0 +1,9 @@
+{
+  "id": "clipboard",
+  "name": "Clipboard History",
+  "version": "1.0.0",
+  "author": "austrasien",
+  "license": "MIT",
+  "description": "Search and paste Omarchy's clipboard history (clip …, or the Clipboard History command).",
+  "entry": "Provider.qml"
+}
