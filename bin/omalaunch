@@ -181,7 +181,7 @@ cmd_doctor() {
   check "plugin is enabled" bash -c "omarchy plugin list --json 2>/dev/null | grep -q '\"id\":\"$PLUGIN_ID\"[^}]*\"enabled\":true'"
   check "plugin answers IPC" bash -c "[[ \$(omarchy-shell $IPC ping) == ok ]]"
   check "wl-copy is installed" command -v wl-copy
-  if command -v qalc >/dev/null; then printf '  ok    qalc is installed (calculator plugin)\n'; else printf '  info  qalc missing: the calculator plugin needs `sudo pacman -S libqalculate`\n'; fi
+  if command -v qalc >/dev/null; then printf '  ok    qalc is installed (calculator plugin)\n'; else printf '  info  qalc missing: optional, for units in the calculator (sudo pacman -S libqalculate)\n'; fi
   if command -v claude >/dev/null; then printf '  ok    claude is installed (Claude plugin)\n'; else printf '  info  claude CLI missing: the Claude plugin needs it\n'; fi
   local errs
   errs=$(ipc errors 2>/dev/null)

@@ -196,26 +196,30 @@ Item {
     root.generation += 1
     unregisterUserPlugins()
     root.loadErrors = []
-    var script = 'shopt -s nullglob; for f in "$1"/*/manifest.json; do printf "%s\\x1f" "$(dirname "$f")"; cat "$f"; printf "\\x1e"; done'
-    root.exec.capture(["bash", "-c", script, "bash", root.pluginsDir], function(code, out) {
+    // Quickshell caches QML and JS by file path for the life of the shell, so
+    // each load reaches the plugins through a fresh directory of symlinks.
+    var runDir = (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/omalaunch/load-" + Date.now()
+    var script = 'shopt -s nullglob; base=$(dirname "$2"); rm -rf "$base"/load-*; mkdir -p "$2"; '
+      + 'for f in "$1"/*/manifest.json; do d=$(dirname "$f"); n=$(basename "$d"); ln -s "$(readlink -f "$d")" "$2/$n"; '
+      + 'printf "%s\\x1f%s\\x1f" "$d" "$2/$n"; cat "$f"; printf "\\x1e"; done'
+    root.exec.capture(["bash", "-c", script, "bash", root.pluginsDir, runDir], function(code, out) {
       var chunks = String(out || "").split("\x1e")
       for (var i = 0; i < chunks.length; i++) {
         var parts = chunks[i].split("\x1f")
-        if (parts.length < 2) continue
-        loadOne(parts[0].trim(), parts[1])
+        if (parts.length < 3) continue
+        loadOne(parts[0].trim(), parts[1], parts[2])
       }
     })
   }
 
-  function loadOne(dir, manifestText) {
+  function loadOne(dir, loadDir, manifestText) {
     var manifest
     try { manifest = JSON.parse(manifestText) } catch (e) { return fail(dir, "manifest.json is not valid JSON") }
     var id = String(manifest.id || "")
     if (!/^[a-z0-9][a-z0-9._-]*$/.test(id)) return fail(dir, "manifest id must be lower-case letters, digits, . _ -")
     if (providerById(id)) return fail(dir, "id " + id + " is already taken")
     var entry = String(manifest.entry || "Provider.qml")
-    // A fresh query string per load makes the engine treat edited files as new.
-    var url = "file://" + dir + "/" + entry + "?g=" + root.generation
+    var url = "file://" + loadDir + "/" + entry
     var component = Qt.createComponent(url)
     var finish = function() {
       if (component.status === Component.Error) return fail(dir, component.errorString())

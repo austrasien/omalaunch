@@ -103,10 +103,11 @@ Any other fields are kept and handed back to `actions()` and `run()`.
 
 ## Developing
 
-`omalaunch reload` (or the "Reload omalaunch Plugins" command) reloads
-plugin QML. Quickshell caches imported `.js` files for the life of the
-shell, so after editing a plugin's JavaScript run `omarchy-restart-shell`.
-Load errors appear under "Show Plugin Errors" and in `omalaunch plugins`.
+The "Reload omalaunch Plugins" command (or `omarchy-shell omalaunch reload`)
+reloads every plugin, QML and JavaScript included: omalaunch loads plugins
+through a fresh directory of symlinks each time, because Quickshell caches
+files by path. `omalaunch dev` does it on every save. Load errors appear
+under "Show Plugin Errors" and in `omalaunch plugins`.
 
 ## Script commands
 
