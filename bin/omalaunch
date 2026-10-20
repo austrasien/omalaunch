@@ -1,0 +1,208 @@
+#!/bin/bash
+# omalaunch — manage and drive the omalaunch launcher plugin in omarchy-shell.
+
+set -uo pipefail
+
+PLUGIN_ID="austraz.omalaunch"
+IPC="omalaunch"
+
+self=$(readlink -f "${BASH_SOURCE[0]}")
+repo=$(cd "$(dirname "$self")/.." && pwd)
+src="$repo/plugin"
+config="${XDG_CONFIG_HOME:-$HOME/.config}"
+shell_plugins="$config/omarchy/plugins"
+user_plugins="$config/omalaunch/plugins"
+user_scripts="$config/omalaunch/scripts"
+hypr="$config/hypr"
+bind_file="$hypr/omalaunch.lua"
+
+die() { echo "omalaunch: $*" >&2; exit 1; }
+say() { echo "omalaunch: $*"; }
+
+usage() {
+  cat <<EOF
+Usage: omalaunch <command> [args]
+
+Launcher
+  toggle | show | hide       Show or hide the launcher
+  query <text>               Open with <text> in the search field
+  run <key>                  Run a row by key, e.g. apps:firefox, omarchy:system.lock
+  search <text>              Print the rows a search returns
+
+Setup
+  install                    Link the plugin and bundled plugins, enable it, link this CLI
+  uninstall                  Disable and unlink everything install created
+  bind [KEY]                 Bind KEY (default "ALT + SPACE") in $bind_file
+  unbind                     Remove the binding
+  reload                     Make the shell reload the plugin's QML
+  dev                        Reload on every save under plugin/ and plugins/
+  doctor                     Check the installation
+  plugins                    List loaded providers and plugin errors
+EOF
+}
+
+ipc() { omarchy-shell "$IPC" "$@"; }
+
+# Links in the shell's plugin dir that point at our source.
+our_links() {
+  local l
+  for l in "$shell_plugins"/*; do
+    [[ -L $l && $(readlink -f "$l") == "$src" ]] && printf '%s\n' "$l"
+  done
+}
+
+wait_ready() {
+  local i
+  for i in $(seq 1 60); do
+    [[ $(ipc ping 2>/dev/null) == ok ]] && return 0
+    sleep 0.1
+  done
+  return 1
+}
+
+cmd_install() {
+  command -v omarchy-shell >/dev/null || die "omarchy-shell not found"
+  mkdir -p "$shell_plugins" "$user_plugins" "$user_scripts" "$HOME/.local/bin"
+  local link="$shell_plugins/$PLUGIN_ID"
+  [[ -e $link && ! -L $link ]] && die "$link exists and is not a symlink"
+  if [[ -z $(our_links) ]]; then
+    ln -sfn "$src" "$link"
+    say "linked $link"
+  fi
+
+  local d name
+  for d in "$repo"/plugins/*/; do
+    [[ -f $d/manifest.json ]] || continue
+    name=$(basename "$d")
+    if [[ -e $user_plugins/$name && ! -L $user_plugins/$name ]]; then
+      say "skipping bundled plugin $name: $user_plugins/$name is not a symlink"
+      continue
+    fi
+    ln -sfn "${d%/}" "$user_plugins/$name"
+    say "linked plugin $name"
+  done
+
+  if [[ ! -e $HOME/.local/bin/omalaunch || -L $HOME/.local/bin/omalaunch ]]; then
+    ln -sfn "$self" "$HOME/.local/bin/omalaunch"
+  fi
+
+  omarchy-shell -q shell rescanPlugins
+  local out i
+  for i in $(seq 1 50); do
+    out=$(omarchy plugin enable "$PLUGIN_ID" 2>&1) && break
+    [[ $out == *"not ready"* || $out == *"could not find"* || $out == *"not known"* || $out == *"unknown"* ]] || break
+    sleep 0.1
+  done
+  [[ -n ${out:-} ]] && echo "$out"
+  wait_ready && say "running" || die "the plugin did not answer; see: qs log -n -p \"\$OMARCHY_PATH/shell\" | grep -i omalaunch"
+}
+
+cmd_uninstall() {
+  omarchy plugin disable "$PLUGIN_ID" >/dev/null 2>&1 || true
+  local l
+  while IFS= read -r l; do [[ -n $l ]] && rm "$l" && say "removed $l"; done < <(our_links)
+  for l in "$user_plugins"/*; do
+    [[ -L $l && $(readlink -f "$l") == "$repo"/plugins/* ]] && rm "$l" && say "removed $l"
+  done
+  [[ -L $HOME/.local/bin/omalaunch && $(readlink -f "$HOME/.local/bin/omalaunch") == "$self" ]] && rm "$HOME/.local/bin/omalaunch"
+  omarchy-shell -q shell rescanPlugins
+  [[ -f $bind_file ]] && say "the key binding is still in $bind_file; run: omalaunch unbind"
+  say "state kept in ~/.local/share/omalaunch (delete it to forget rankings)"
+}
+
+# Quickshell keeps every QML file it has loaded, by path, for the life of the
+# process, and the shell's watcher does not follow symlinks into the repo. A
+# link under a never-seen name makes the shell load the plugin fresh.
+cmd_reload() {
+  [[ -n $(our_links) ]] || die "not installed; run: omalaunch install"
+  local l
+  while IFS= read -r l; do rm "$l"; done < <(our_links)
+  ln -s "$src" "$shell_plugins/$PLUGIN_ID.r$(date +%s%N)"
+  wait_ready && say "reloaded" || say "reloaded, but the plugin is not answering yet"
+}
+
+cmd_dev() {
+  command -v inotifywait >/dev/null || die "inotifywait not found (pacman -S inotify-tools)"
+  cmd_reload
+  say "watching; Ctrl+C to stop"
+  inotifywait -m -r -q -e close_write,create,delete,move --format '%w%f' "$src" "$repo/plugins" |
+    while read -r path; do
+      echo "changed ${path#"$repo"/}"
+      if [[ $path == "$repo/plugins/"* ]]; then ipc reload >/dev/null; else cmd_reload; fi
+    done
+}
+
+cmd_bind() {
+  local key="${1:-ALT + SPACE}"
+  [[ -f $hypr/hyprland.lua ]] || die "no $hypr/hyprland.lua (this targets Lua-configured Hyprland)"
+  local norm
+  norm=$(tr -d ' ' <<<"$key" | tr '[:lower:]' '[:upper:]')
+  local clash
+  clash=$(grep -rhn --include='*.lua' -E 'bind\(' "$hypr" "${OMARCHY_PATH:-/usr/share/omarchy}/default/hypr" 2>/dev/null |
+    grep -v "omalaunch" | grep -vE '^\s*[0-9]+:\s*--' |
+    while IFS= read -r line; do
+      k=$(sed -nE 's/.*bind\(\s*"([^"]+)".*/\1/p' <<<"$line" | tr -d ' ' | tr '[:lower:]' '[:upper:]')
+      [[ -n $k && $k == "$norm" ]] && echo "$line"
+    done)
+  if [[ -n $clash ]]; then
+    echo "$key is already bound:" >&2
+    echo "$clash" >&2
+    die "unbind it first or pick another key"
+  fi
+  cat >"$bind_file" <<EOF
+-- Written by \`omalaunch bind\`. Rerunning bind overwrites this file.
+o.bind("$key", "omalaunch", hl.dsp.global("omalaunch:toggle"))
+EOF
+  if ! grep -qE '^\s*require\("hypr\.omalaunch"\)' "$hypr/hyprland.lua"; then
+    printf '\n-- omalaunch launcher\nrequire("hypr.omalaunch")\n' >>"$hypr/hyprland.lua"
+    say "added require(\"hypr.omalaunch\") to $hypr/hyprland.lua"
+  fi
+  hyprctl reload >/dev/null && say "$key toggles omalaunch"
+}
+
+cmd_unbind() {
+  rm -f "$bind_file"
+  if [[ -f $hypr/hyprland.lua ]]; then
+    sed -i -E '/^-- omalaunch launcher$/d; /^\s*require\("hypr\.omalaunch"\)/d' "$hypr/hyprland.lua"
+  fi
+  hyprctl reload >/dev/null
+  say "binding removed"
+}
+
+cmd_doctor() {
+  local bad=0
+  check() {
+    local label=$1; shift
+    if "$@" >/dev/null 2>&1; then printf '  ok    %s\n' "$label"; else printf '  FAIL  %s\n' "$label"; bad=1; fi
+  }
+  echo "omalaunch doctor"
+  check "omarchy-shell is running" omarchy-shell shell ping
+  check "plugin is linked" test -n "$(our_links)"
+  check "plugin is enabled" bash -c "omarchy plugin list --json 2>/dev/null | grep -q '\"id\":\"$PLUGIN_ID\"[^}]*\"enabled\":true'"
+  check "plugin answers IPC" bash -c "[[ \$(omarchy-shell $IPC ping) == ok ]]"
+  check "wl-copy is installed" command -v wl-copy
+  if command -v qalc >/dev/null; then printf '  ok    qalc is installed (calculator plugin)\n'; else printf '  info  qalc missing: the calculator plugin needs `sudo pacman -S libqalculate`\n'; fi
+  if command -v claude >/dev/null; then printf '  ok    claude is installed (Claude plugin)\n'; else printf '  info  claude CLI missing: the Claude plugin needs it\n'; fi
+  local errs
+  errs=$(ipc errors 2>/dev/null)
+  if [[ -n $errs && $errs != "[]" ]]; then printf '  FAIL  plugin errors: %s\n' "$errs"; bad=1; fi
+  [[ -f $bind_file ]] && printf '  ok    key binding in %s\n' "$bind_file" || printf '  info  no key binding yet; run: omalaunch bind\n'
+  return $bad
+}
+
+case "${1:-}" in
+  toggle|show|hide) ipc "$1" >/dev/null ;;
+  query) shift; ipc query "$*" >/dev/null ;;
+  run) [[ -n ${2:-} ]] || die "usage: omalaunch run <key>"; ipc run "$2" ;;
+  search) shift; ipc search "$*" ;;
+  plugins) ipc providers; echo; ipc errors ;;
+  install) cmd_install ;;
+  uninstall) cmd_uninstall ;;
+  reload) cmd_reload ;;
+  dev) cmd_dev ;;
+  bind) shift; cmd_bind "$*" ;;
+  unbind) cmd_unbind ;;
+  doctor) cmd_doctor ;;
+  ""|-h|--help|help) usage ;;
+  *) usage >&2; exit 1 ;;
+esac
