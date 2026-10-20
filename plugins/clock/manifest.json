@@ -1,0 +1,9 @@
+{
+  "id": "clock",
+  "name": "Clock",
+  "version": "1.0.0",
+  "author": "austrasien",
+  "license": "MIT",
+  "description": "World clock (time tokyo, 15h paris en tokyo), date arithmetic (dans 3 jours, jusqu'au 25/12) and timers (timer 25 café).",
+  "entry": "Provider.qml"
+}
