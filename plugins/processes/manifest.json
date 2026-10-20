@@ -1,0 +1,9 @@
+{
+  "id": "processes",
+  "name": "Processes",
+  "version": "1.0.0",
+  "author": "austrasien",
+  "license": "MIT",
+  "description": "“kill name”: your processes by memory and CPU, grouped by program; Enter terminates, Ctrl+Enter forces.",
+  "entry": "Provider.qml"
+}
