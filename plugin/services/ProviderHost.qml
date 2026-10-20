@@ -123,7 +123,7 @@ Item {
           var direct = provider.object.query(text, reply)
           if (Array.isArray(direct)) reply(direct)
         } catch (e) {
-          console.warn("[omalaunch] provider " + provider.id + " query() threw:", e)
+          console.warn("[omalaunch] provider " + provider.id + " query() threw:", e, (e && e.fileName ? e.fileName.split("/").pop() + ":" + e.lineNumber : ""))
         }
       })(p)
     }

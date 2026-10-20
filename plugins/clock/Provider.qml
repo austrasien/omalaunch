@@ -35,16 +35,31 @@ Item {
     return (minutes > 0 ? "+" : "−") + h + " h" + (m ? " " + pad(m) : "") + " par rapport à ici"
   }
 
-  // Ask `date` for the wall time in `zone` (optionally of a time given in
-  // another zone): fields "Y M D H M weekday offset".
-  function wallTime(zone, spec, callback) {
-    var fmt = "+%Y %m %d %H %M %w %z"
-    var argv = zone ? ["env", "TZ=" + zone, "date"] : ["date"]
-    argv = spec ? argv.concat(["-d", spec, fmt]) : argv.concat([fmt])
+  // The wall time at instant `ms` in a zone spec ({ fixed } offset, { zone }
+  // name, or "" for local): { y, mo, d, h, mi, wd, off (minutes) }.
+  function wallAt(ms, spec, callback) {
+    if (spec.fixed !== undefined) {
+      var u = new Date(ms + spec.fixed * 60000)
+      callback({ y: u.getUTCFullYear(), mo: u.getUTCMonth() + 1, d: u.getUTCDate(), h: u.getUTCHours(), mi: u.getUTCMinutes(), wd: u.getUTCDay(), off: spec.fixed })
+      return
+    }
+    var argv = (spec.zone ? ["env", "TZ=" + spec.zone, "date"] : ["date"]).concat(["-d", "@" + Math.floor(ms / 1000), "+%Y %m %d %H %M %w %z"])
     root.host.capture(argv, function(code, out) {
       var f = String(out || "").trim().split(" ")
       if (code !== 0 || f.length < 7) { callback(null); return }
-      callback({ y: +f[0], mo: +f[1], d: +f[2], h: +f[3], mi: +f[4], wd: +f[5], off: f[6] })
+      callback({ y: +f[0], mo: +f[1], d: +f[2], h: +f[3], mi: +f[4], wd: +f[5], off: offsetMinutes(f[6]) })
+    }, 3000)
+  }
+
+  // The instant of today's h:m in a zone spec, in ms.
+  function instantOf(now, h, m, spec, callback) {
+    if (spec.fixed !== undefined) {
+      callback(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), h, m) - spec.fixed * 60000)
+      return
+    }
+    var day = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate())
+    root.host.capture(["date", "-d", 'TZ="' + spec.zone + '" ' + day + " " + pad(h) + ":" + pad(m), "+%s"], function(code, out) {
+      callback(code === 0 ? parseInt(String(out).trim(), 10) * 1000 : null)
     }, 3000)
   }
 
@@ -59,24 +74,30 @@ Item {
     var here = -now.getTimezoneOffset()
 
     if (q.kind === "zone") {
-      var zone = q.place ? Clock.zoneFor(q.place, root.zones) : ""
-      if (q.place && !zone) return []
-      wallTime(zone || "", "", function(t) {
+      var spec = q.place ? Clock.zoneSpec(q.place, root.zones) : { zone: "", label: "" }
+      if (!spec) return []
+      root.wallAt(Date.now(), spec, function(t) {
         if (!t) return
         var time = pad(t.h) + ":" + pad(t.mi)
-        reply([{ id: "zone", title: zone ? time + " à " + place(zone) : time + " — heure locale", subtitle: describe(t) + "  ·  UTC" + t.off.slice(0, 3) + ":" + t.off.slice(3) + (zone ? "  ·  " + gap(offsetMinutes(t.off) - here) : ""), icon: "", type: "Clock", copy: time }])
+        var title = q.place ? time + " — " + spec.label : time + " — heure locale"
+        reply([{ id: "zone", title: title, subtitle: describe(t) + "  ·  " + Clock.offsetLabel(t.off) + (q.place ? "  ·  " + gap(t.off - here) : ""), icon: "\uf017", type: "Clock", copy: time }])
       })
       return null
     }
 
     if (q.kind === "convert") {
-      var from = Clock.zoneFor(q.from, root.zones), to = Clock.zoneFor(q.to, root.zones)
+      var from = Clock.zoneSpec(q.from, root.zones), to = Clock.zoneSpec(q.to, root.zones)
       if (!from || !to) return []
-      var day = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate())
-      wallTime(to, 'TZ="' + from + '" ' + day + " " + pad(q.h) + ":" + pad(q.m), function(t) {
-        if (!t) return
-        var time = pad(t.h) + ":" + pad(t.mi)
-        reply([{ id: "convert", title: time + " à " + place(to), subtitle: pad(q.h) + ":" + pad(q.m) + " à " + place(from) + " → " + describe(t) + " à " + place(to), icon: "", type: "Clock", copy: time }])
+      root.instantOf(now, q.h, q.m, from, function(ms) {
+        if (ms === null) return
+        root.wallAt(ms, to, function(t) {
+          if (!t) return
+          var time = pad(t.h) + ":" + pad(t.mi)
+          var src = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+          var shift = Math.round((Date.UTC(t.y, t.mo - 1, t.d) - Date.UTC(src.getFullYear(), src.getMonth(), src.getDate())) / 86400000)
+          var dayNote = shift === 1 ? " (lendemain)" : (shift === -1 ? " (veille)" : "")
+          reply([{ id: "convert", title: time + dayNote + " — " + to.label, subtitle: pad(q.h) + ":" + pad(q.m) + " " + from.label + "  →  " + time + " " + to.label + "  ·  " + describe(t), icon: "\uf017", type: "Clock", copy: time }])
+        })
       })
       return null
     }

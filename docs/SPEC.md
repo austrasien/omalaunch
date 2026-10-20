@@ -53,7 +53,12 @@ the repo's `plugins/` are installed there by `omalaunch install`:
 | `emojis` | `:name` in French or English (Unicode CLDR names); Enter pastes, a bare `:` lists the last used. |
 | `snippets` | `;name` pastes `~/.config/omalaunch/snippets/name.*` with variables filled in (README); `{input:…}` asks in the launcher; `{shell:…}` runs only in executable snippet files; the text clipboard is restored after pasting. |
 | `web-keywords` | `<keyword> terms` opens a site search; defaults in `Keywords.js`, overrides in `~/.config/omalaunch/web.json` (`null` removes a default). |
-| `clock` | `heure tokyo`, `15h paris en tokyo`, `dans 3 jours`, `jusqu'au 25/12`, `timer 25 café` (an Omarchy reminder). |
+| `clock` | `heure tokyo`, `15h paris en tokyo`, `1000 UTC+2 to BST` (cities, `UTC±h[:mm]`, `+hhmm` and abbreviations such as BST, CET, EST, PST, JST), `maintenant en pst`, `dans 3 jours`, `jusqu'au 25/12`, `timer 25 café` (an Omarchy reminder). |
+| `browser` | Bookmarks of the most recently used Chromium-family profile as searchable rows; `b term` over bookmarks and history (read in place, sqlite immutable). |
+| `quick-settings` | `vol 40` / `vol +10` / `vol mute`, `lum 70`, `wifi [on/off/name]`, `bt [on/off/device]`, `sortie` (audio output), `dnd`, `batterie`. |
+| `processes` | `kill [name]`: your processes grouped by program, by memory; Enter SIGTERM, Ctrl+Enter SIGKILL; session plumbing protected. |
+| `ssh` | Hosts from `~/.ssh/config` and its Includes as rows; `ssh [name]`; Enter connects in a terminal. |
+| `agenda` | `agenda [demain / words]`: the next 14 days from `~/.config/omalaunch/calendars.json` (iCalendar URLs, e.g. Google Calendar's secret iCal address; RRULE, EXDATE and moved instances expanded by `agenda.py`); a "Next:" row; Enter joins the call link. |
 | `obsidian` | `o term` (titles, then content via ripgrep), `o` (newest notes), `o+ text` (a `- HH:mm text` line under `## Notes` in today's daily note, created from the daily template), `on Title` (new note in the new-note folder or `Inbox/`). |
 
 ## 4. Lists and sections

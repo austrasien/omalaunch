@@ -46,9 +46,46 @@ function zoneFor(place, zones) {
   return null
 }
 
-// "15h", "15h30", "15:30", "3pm", "3:30 pm" → { h, m } or null.
-function parseClock(s) {
+// Time-zone abbreviations and their fixed offsets in minutes. Where an
+// abbreviation is ambiguous the most common meaning wins (CST = US Central,
+// IST = India).
+var ABBREVIATIONS = {
+  utc: 0, gmt: 0, z: 0, wet: 0, west: 60, bst: 60, ist: 330, cet: 60, cest: 120, eet: 120, eest: 180, msk: 180,
+  gst: 240, pkt: 300, ict: 420, wib: 420, sgt: 480, hkt: 480, awst: 480, pht: 480, jst: 540, kst: 540,
+  acst: 570, acdt: 630, aest: 600, aedt: 660, nzst: 720, nzdt: 780,
+  brt: -180, art: -180, ast: -240, adt: -180, est: -300, edt: -240, cst: -360, cdt: -300, mst: -420, mdt: -360,
+  pst: -480, pdt: -420, akst: -540, akdt: -480, hst: -600
+}
+
+// A zone token: "UTC+2", "GMT-5:30", "+0200", "BST", or a place →
+// { fixed: minutes, label } or { zone: "Area/City", label }, else null.
+function zoneSpec(token, zones) {
+  var t = fold(token).replace(/\s+/g, "")
+  var m = /^(?:(utc|gmt)?([+-])(\d{1,2})(?::?(\d{2}))?|(utc|gmt))$/.exec(t)
+  if (m && (m[1] || m[2] || m[5])) {
+    var off = m[5] ? 0 : (m[2] === "-" ? -1 : 1) * (parseInt(m[3], 10) * 60 + (m[4] ? parseInt(m[4], 10) : 0))
+    if (Math.abs(off) <= 14 * 60) return { fixed: off, label: m[5] ? m[5].toUpperCase() : offsetLabel(off) }
+  }
+  if (ABBREVIATIONS[t] !== undefined) return { fixed: ABBREVIATIONS[t], label: t.toUpperCase() + " (" + offsetLabel(ABBREVIATIONS[t]) + ")" }
+  var z = zoneFor(token, zones)
+  return z ? { zone: z, label: z === "UTC" ? "UTC" : z.slice(z.lastIndexOf("/") + 1).replace(/_/g, " ") } : null
+}
+
+function offsetLabel(min) {
+  if (!min) return "UTC"
+  var a = Math.abs(min)
+  return "UTC" + (min > 0 ? "+" : "−") + Math.floor(a / 60) + (a % 60 ? ":" + (a % 60 < 10 ? "0" : "") + (a % 60) : "")
+}
+
+// "15h", "15h30", "15:30", "3pm", "3:30 pm", and in conversions "1000" /
+// "930" → { h, m } or null.
+function parseClock(s, allowBare) {
   var t = fold(s).replace(/\s+/g, "")
+  var bare = /^(\d{1,2})(\d{2})$/.exec(t)
+  if (allowBare && bare && t.length >= 3) {
+    var bh = parseInt(bare[1], 10), bm = parseInt(bare[2], 10)
+    return bh < 24 && bm < 60 ? { h: bh, m: bm } : null
+  }
   var m = /^(\d{1,2})(?:[h:](\d{2})?)?(am|pm)?$/.exec(t)
   if (!m || (!m[2] && !m[3] && !/[h:]/.test(t))) return null
   var h = parseInt(m[1], 10), min = m[2] ? parseInt(m[2], 10) : 0
@@ -131,10 +168,11 @@ function parse(query, now) {
   if ((m = /^(?:time|heure|il est quelle heure|quelle heure)(?:\s+(?:a|in|at|en|au|aux))?\s+(.+)$/.exec(q)) || (m = /^(.+?)\s+(?:time|heure)$/.exec(q))) {
     return { kind: "zone", place: m[1] }
   }
-  if ((m = /^(.+?)\s+(?:a\s+|at\s+)?(.+?)\s+(?:en|to|in|vers|->)\s+(.+)$/.exec(q))) {
-    var c = parseClock(m[1])
+  if ((m = /^(\S+(?:\s*(?:am|pm))?)\s+(?:a\s+|at\s+)?(.+?)\s+(?:en|to|in|vers|->|=>)\s+(.+)$/.exec(q))) {
+    var c = parseClock(m[1], true)
     if (c) return { kind: "convert", h: c.h, m: c.m, from: m[2], to: m[3] }
   }
+  if ((m = /^(?:now|maintenant)\s+(?:en|to|in)\s+(.+)$/.exec(q))) return { kind: "zone", place: m[1] }
   if ((m = /^(?:dans|in)\s+(\d+)\s*([a-z]+)$/.exec(q)) && UNITS[m[2]]) {
     return { kind: "date", date: addTo(now, parseInt(m[1], 10), UNITS[m[2]]), unit: UNITS[m[2]] }
   }
@@ -152,5 +190,5 @@ function parse(query, now) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { fold: fold, zoneFor: zoneFor, parseClock: parseClock, parse: parse, daysBetween: daysBetween, frenchDate: frenchDate, isoWeek: isoWeek, DAYS: DAYS, MONTHS: MONTHS }
+  module.exports = { fold: fold, zoneFor: zoneFor, zoneSpec: zoneSpec, offsetLabel: offsetLabel, parseClock: parseClock, parse: parse, daysBetween: daysBetween, frenchDate: frenchDate, isoWeek: isoWeek, DAYS: DAYS, MONTHS: MONTHS }
 }

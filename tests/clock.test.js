@@ -28,3 +28,17 @@ test("clock: queries", () => {
   assert.strictEqual(C.parse("bonjour", now), null)
   assert.strictEqual(C.frenchDate(now), "mardi 20 octobre 2026")
 })
+
+test("clock: offsets and abbreviations", () => {
+  assert.deepStrictEqual(C.zoneSpec("UTC+2", zones), { fixed: 120, label: "UTC+2" })
+  assert.deepStrictEqual(C.zoneSpec("gmt-5:30", zones), { fixed: -330, label: "UTC−5:30" })
+  assert.deepStrictEqual(C.zoneSpec("+0200", zones), { fixed: 120, label: "UTC+2" })
+  assert.deepStrictEqual(C.zoneSpec("BST", zones), { fixed: 60, label: "BST (UTC+1)" })
+  assert.deepStrictEqual(C.zoneSpec("GMT", zones), { fixed: 0, label: "GMT" })
+  assert.deepStrictEqual(C.zoneSpec("tokyo", zones), { zone: "Asia/Tokyo", label: "Tokyo" })
+  assert.strictEqual(C.zoneSpec("eur", zones), null)
+  assert.deepStrictEqual(C.parse("1000 UTC+2 to BST", now), { kind: "convert", h: 10, m: 0, from: "utc+2", to: "bst" })
+  assert.deepStrictEqual(C.parse("930 ist en cet", now), { kind: "convert", h: 9, m: 30, from: "ist", to: "cet" })
+  assert.deepStrictEqual(C.parse("maintenant en pst", now), { kind: "zone", place: "pst" })
+  assert.strictEqual(C.parseClock("1000"), null)
+})

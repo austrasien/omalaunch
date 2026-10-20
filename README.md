@@ -27,6 +27,10 @@ your scripts and plugins, ranked by what you actually use.
   (`gh`, `yt`, `maps`, `wiki`, `deepl`, `amz`…), a world clock and timers
   (`heure tokyo`, `dans 3 jours`, `timer 25 café`), Obsidian notes (`o`,
   `o+`, `on`) and Claude Code sessions (`cc`).
+- **Laptop daily.** Browser bookmarks and history (`b …`), quick settings
+  (`vol 40`, `lum 70`, `wifi`, `bt`, `sortie`, `dnd`, `batterie`), `kill …`,
+  SSH hosts (`ssh …`), your agenda (`agenda`, Enter joins the call) and time
+  conversions (`1000 UTC+2 to BST`).
 - **Grid view.** Images, PDFs and emojis show as thumbnails (`Ctrl+G` toggles).
 - **Shell and keys.** `> command` runs a command; any row can get its own
   Hyprland key (`Ctrl+Shift+H`); `Ctrl+L` shows a result in Large Type.
