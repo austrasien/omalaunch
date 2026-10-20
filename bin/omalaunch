@@ -225,7 +225,7 @@ case $cmd in
   toggle|show|hide) send "$cmd" >/dev/null ;;
   query) send query "$*" >/dev/null ;;
   run) [[ $# -ge 1 ]] || fail "run needs a key"; send run "$1" ;;
-  search) send search "$*" ;;
+  search) send probe "$*" >/dev/null; sleep 0.6; send search "$*" ;;
   plugins) send providers; echo; send errors ;;
   install) do_install ;;
   uninstall) do_uninstall ;;

@@ -143,7 +143,7 @@ test("guard output parsing", () => {
 
 test("script header", () => {
   const h = Scripts.parseHeader("#!/bin/bash\n# @omalaunch.title Hello World\n# @omalaunch.mode toast\n// @omalaunch.argument name\necho hi")
-  assert.deepStrictEqual(h, { title: "Hello World", mode: "toast", icon: "", description: "", argument: "name" })
+  assert.deepStrictEqual(h, { title: "Hello World", mode: "toast", icon: "", description: "", argument: "name", keyword: "" })
   assert.strictEqual(Scripts.parseHeader("echo nothing"), null)
   assert.strictEqual(Scripts.parseHeader("# @omalaunch.title T\n# @omalaunch.mode weird").mode, "silent")
 })
@@ -152,6 +152,24 @@ test("script argument from query", () => {
   assert.strictEqual(Scripts.argumentFrom("hello world  bob ", "Hello World", ""), "bob")
   assert.strictEqual(Scripts.argumentFrom("hw bob", "Hello World", "hw"), "bob")
   assert.strictEqual(Scripts.argumentFrom("hello", "Hello World", ""), "")
+})
+
+test("script filters: keyword and header", () => {
+  const h = Scripts.parseHeader("# @omalaunch.title Keys\n# @omalaunch.mode filter\n# @omalaunch.keyword keys extra")
+  assert.strictEqual(h.mode, "filter")
+  assert.strictEqual(h.keyword, "keys")
+  assert.strictEqual(Scripts.filterText("keys term", "keys"), "term")
+  assert.strictEqual(Scripts.filterText("Keys", "keys"), "")
+  assert.strictEqual(Scripts.filterText("keyswitch", "keys"), null)
+  assert.strictEqual(Scripts.filterText("keys", ""), null)
+})
+
+test("script filters: output parsing", () => {
+  assert.strictEqual(Scripts.parseFilterOutput("not json"), null)
+  assert.strictEqual(Scripts.parseFilterOutput('{"other": 1}'), null)
+  const rows = Scripts.parseFilterOutput('{"items":[{"title":"A","arg":"a","open":"https://x"},"B",{"subtitle":"no title"}]}')
+  assert.deepStrictEqual(rows.map((r) => [r.title, r.arg, r.open, r.copy]), [["A", "a", "https://x", "a"], ["B", "B", "", "B"]])
+  assert.strictEqual(Scripts.parseFilterOutput(JSON.stringify(Array.from({ length: 80 }, (_, i) => "x" + i))).length, 50)
 })
 
 const deps = { Rank, State }

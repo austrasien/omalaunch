@@ -460,6 +460,13 @@ Item {
     }
     function errors(): string { return JSON.stringify(host.loadErrors) }
     function debug(): string { return JSON.stringify({ shell: !!root.shell, appLibrary: !!(root.shell && root.shell.appLibrary), hostLib: !!host.appLibrary }) }
+    // Send a query to the providers without opening the launcher; read the
+    // rows back with search() once they answer (testing).
+    function probe(text: string): string {
+      if (root.opened) return "busy"
+      host.query(text)
+      return "ok"
+    }
     // Rows the list shows for a query, as text (testing and scripting).
     function search(text: string): string {
       var secs = Sections.rootSections(host.catalog(), host.dynamicList(), text, store.state, Date.now(), root.deps)
