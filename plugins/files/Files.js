@@ -35,7 +35,8 @@ function rank(paths, words, limit) {
     var name = basename(low)
     var stem = name.replace(/\.[^.]*$/, "")
     var s = stem === first || name === first ? 0 : (name.indexOf(first) === 0 ? 1 : (name.indexOf(first) >= 0 ? 2 : 3))
-    scored.push({ path: p, s: s, depth: p.split("/").length, len: p.length })
+    var bare = p.replace(/\/+$/, "")
+    scored.push({ path: p, s: s, depth: bare.split("/").length, len: bare.length })
   }
   scored.sort(function(a, b) { return a.s - b.s || a.depth - b.depth || a.len - b.len })
   return scored.slice(0, limit || 30).map(function(x) { return x.path })
