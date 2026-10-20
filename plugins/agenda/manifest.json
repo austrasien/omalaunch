@@ -1,0 +1,9 @@
+{
+  "id": "agenda",
+  "name": "Agenda",
+  "version": "1.0.0",
+  "author": "austrasien",
+  "license": "MIT",
+  "description": "“agenda”: upcoming events from your calendars (Google Calendar secret iCal address or any .ics); Enter joins the video call.",
+  "entry": "Provider.qml"
+}
