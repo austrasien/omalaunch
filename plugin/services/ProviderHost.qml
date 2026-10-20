@@ -178,6 +178,15 @@ Item {
     return own
   }
 
+  // Quick Look data from the provider's preview(row, reply), if it has one:
+  // reply({ kind: "text" | "markdown" | "image", name, text?, image?, width?, height? }).
+  function previewFor(row, reply) {
+    var p = providerById(row.provider)
+    if (!p || !p.object || typeof p.object.preview !== "function") return false
+    try { p.object.preview(row, reply); return true } catch (e) { console.warn("[omalaunch] preview() threw:", e) }
+    return false
+  }
+
   // Returns the provider's outcome: { close?, toast?, push? }.
   function run(row, actionId, ctx) {
     var p = providerById(row.provider)

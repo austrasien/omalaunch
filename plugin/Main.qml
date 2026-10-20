@@ -448,6 +448,10 @@ Item {
     var row = root.selectedRow
     var seq = ++root.previewSeq
     if (!row) { root.previewData = { kind: "none" }; return }
+    if (host.previewFor(row, function(data) { if (seq === root.previewSeq) root.previewData = data })) {
+      if (!root.previewData) root.previewData = { kind: "loading", name: row.title }
+      return
+    }
     if (row.previewText !== undefined && row.previewText !== "") {
       root.previewData = { kind: "text", name: row.title, text: String(row.previewText), size: String(row.previewText).length, mime: "text/plain" }
       return

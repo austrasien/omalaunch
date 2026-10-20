@@ -54,6 +54,11 @@ Item {
   // Ctrl+Enter and Ctrl+Shift+Enter. Default: [{ id: "run", title: "Open" }].
   function actions(row) { return [{ id: "run", title: "Open" }] }
 
+  // Optional Quick Look content for a row (when previewPath / previewText
+  // are not enough): reply({ kind: "text" | "markdown" | "image", name,
+  // text?, image?, width?, height? }), now or later.
+  function preview(row, reply) {}
+
   // Do it. Return { close?: bool, toast?: string, push?: { id, title, rows } }.
   // `push` opens a sub-list (Esc goes back). ctx = { query, alias }.
   function run(row, actionId, ctx) { return { close: true } }
@@ -94,6 +99,7 @@ Any other fields are kept and handed back to `actions()` and `run()`.
 | `host.notify(title, body)` | Desktop notification. |
 | `host.terminal(cmd, hold)` | Run `cmd` in a floating terminal; `hold` waits for a key at the end. |
 | `host.toast(text)` | Message in the launcher footer. |
+| `host.ask(label, cb(text), initial)` | Ask for a line of text in the search field; `cb` runs on Enter. |
 | `host.close()` | Hide the launcher. |
 | `host.setQuery(text)` | Replace the search text. |
 | `host.changed()` | Tell omalaunch that `items` changed. |
