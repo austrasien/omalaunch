@@ -17,8 +17,9 @@ project; it is not derived from any other launcher's source or internals.
 
 ## 2. Window
 
-- A card centred horizontally, placed about a quarter down the focused
-  screen, over a transparent full-screen surface. Clicking outside closes it.
+- A card centred on the focused screen (vertically at its tallest, so the
+  search field does not move as results change), over a transparent
+  full-screen surface. Clicking outside closes it.
 - Search field on top, result list below, a footer showing the launcher name,
   the primary action and the action-panel hint.
 - Colours and fonts come from `qs.Commons` (`Color.menu.*`, `Style`), so the

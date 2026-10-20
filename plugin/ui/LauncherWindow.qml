@@ -4,7 +4,7 @@ import Quickshell.Wayland
 import qs.Commons
 
 // The launcher surface (docs/SPEC.md §2, §6): a transparent overlay that
-// takes the keyboard, with the card about a quarter down the screen.
+// takes the keyboard, with the card centred on the screen.
 PanelWindow {
   id: window
 
@@ -69,7 +69,9 @@ PanelWindow {
     width: window.cardWidth
     height: window.searchHeight + listArea.height + window.footerHeight + 2
     x: Math.round((window.width - width) / 2)
-    y: Math.max(Style.gapsOut, Math.min(Math.round(window.height / 4), window.height - height - Style.gapsOut))
+    // Centred at its tallest, so the search field stays put while the list
+    // grows and shrinks with the results.
+    y: Math.max(Style.gapsOut, Math.round((window.height - (window.searchHeight + window.listMax + window.footerHeight + 2)) / 2))
     color: window.bg
     border.color: window.border
     border.width: Math.max(1, Style.normalBorderWidth)
