@@ -42,6 +42,65 @@ function rank(paths, words, limit) {
   return scored.slice(0, limit || 30).map(function(x) { return x.path })
 }
 
+// Search filters: a keyword limited to some extensions and folders, from
+// ~/.config/omalaunch/file-filters.json (these defaults when it is absent).
+var DEFAULT_FILTERS = [
+  { keyword: "pdf", title: "PDFs", extensions: ["pdf"] },
+  { keyword: "img", title: "Images", extensions: ["png", "jpg", "jpeg", "gif", "webp", "svg", "heic", "avif"] },
+  { keyword: "doc", title: "Documents", extensions: ["pdf", "odt", "ods", "odp", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "md", "txt", "rtf", "csv"] },
+  { keyword: "vid", title: "Videos", extensions: ["mp4", "mkv", "mov", "webm", "avi"] }
+]
+
+// Valid filters from the parsed config: keyword (one word), title,
+// extensions (without dots), folders (default ["~"]), hidden, type
+// ("file", "folder" or "any").
+function normalizeFilters(list) {
+  if (!Array.isArray(list)) return []
+  var out = []
+  var taken = {}
+  for (var i = 0; i < list.length; i++) {
+    var f = list[i] || {}
+    var kw = String(f.keyword || "").trim().toLowerCase()
+    if (!/^\S+$/.test(kw) || taken[kw]) continue
+    taken[kw] = true
+    var ext = Array.isArray(f.extensions) ? f.extensions.map(function(e) { return String(e).replace(/^\./, "").toLowerCase() }).filter(function(e) { return /^[a-z0-9]+$/.test(e) }) : []
+    var folders = Array.isArray(f.folders) && f.folders.length ? f.folders.map(String) : ["~"]
+    var type = f.type === "folder" || f.type === "any" ? f.type : (ext.length ? "file" : "any")
+    out.push({ keyword: kw, title: String(f.title || kw), extensions: ext, folders: folders, hidden: !!f.hidden, type: type })
+  }
+  return out
+}
+
+// { filter, words } when the query is "<keyword> " + terms (terms may be
+// empty: newest files first), else null.
+function filterFor(query, filters) {
+  var q = String(query || "").replace(/^\s+/, "")
+  var sp = q.indexOf(" ")
+  if (sp < 1) return null
+  var kw = q.slice(0, sp).toLowerCase()
+  for (var i = 0; i < filters.length; i++) {
+    if (filters[i].keyword === kw) {
+      return { filter: filters[i], words: q.slice(sp + 1).toLowerCase().split(/\s+/).filter(function(w) { return w }) }
+    }
+  }
+  return null
+}
+
+function expandHome(path, home) {
+  return path === "~" ? home : (path.indexOf("~/") === 0 ? home + path.slice(1) : path)
+}
+
+// fd arguments for a filter (pattern "." when there are no words).
+function fdArgs(filter, words, home) {
+  var args = ["-i", "-F", "--absolute-path"]
+  if (filter.hidden) args.push("-H")
+  if (filter.type === "file") args.push("-t", "f")
+  else if (filter.type === "folder") args.push("-t", "d")
+  filter.extensions.forEach(function(e) { args.push("-e", e) })
+  args.push("--", words.length ? words[0] : ".")
+  return args.concat(filter.folders.map(function(f) { return expandHome(f, home) }))
+}
+
 // recently-used.xbel (freedesktop) → [{ path, modified }], newest first,
 // file:// entries only.
 function parseRecent(xml) {
@@ -67,5 +126,8 @@ function parseRecent(xml) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { termsFrom: termsFrom, basename: basename, tilde: tilde, rank: rank, parseRecent: parseRecent }
+  module.exports = {
+    termsFrom: termsFrom, basename: basename, tilde: tilde, rank: rank, parseRecent: parseRecent,
+    DEFAULT_FILTERS: DEFAULT_FILTERS, normalizeFilters: normalizeFilters, filterFor: filterFor, fdArgs: fdArgs
+  }
 }

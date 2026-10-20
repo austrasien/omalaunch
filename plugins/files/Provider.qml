@@ -1,8 +1,10 @@
 import QtQuick
 import "Files.js" as Files
 
-// Files in the home folder ("'term" or "find term", via fd) and recently
-// used documents (recently-used.xbel), searchable like any other row.
+// Files in the home folder ("'term" or "find term", via fd), search
+// filters ("pdf term": a keyword tied to extensions and folders, from
+// ~/.config/omalaunch/file-filters.json) and recently used documents
+// (recently-used.xbel), searchable like any other row.
 Item {
   id: root
 
@@ -12,15 +14,49 @@ Item {
   property string placement: "inline"
   property int order: 20
   property var items: []
+  property string sectionTitle: "Files"
+  property var recentRows: []
+  property var filters: Files.normalizeFilters(Files.DEFAULT_FILTERS)
+  readonly property string filtersFile: (root.host ? root.host.home : "") + "/.config/omalaunch/file-filters.json"
   property bool haveFd: false
   readonly property int recentLimit: 40
 
   function start() {
     root.host.capture(["bash", "-c", "command -v fd"], function(code) { root.haveFd = code === 0 })
+    loadFilters()
     loadRecent()
   }
 
-  function opened() { loadRecent() }
+  function opened() { loadFilters(); loadRecent() }
+
+  function loadFilters() {
+    root.host.capture(["cat", root.filtersFile], function(code, out) {
+      var list = Files.DEFAULT_FILTERS
+      if (code === 0) {
+        try { list = JSON.parse(out) } catch (e) { root.host.toast("file-filters.json is not valid JSON; using the defaults") }
+      }
+      var next = Files.normalizeFilters(list)
+      if (JSON.stringify(next) !== JSON.stringify(root.filters)) {
+        root.filters = next
+        publish()
+      }
+    })
+  }
+
+  // Catalog rows: one command per filter, the filters file, recent files.
+  function publish() {
+    var rows = root.filters.map(function(f) {
+      var where = f.folders.join(", ")
+      var what = f.extensions.length ? f.extensions.slice(0, 6).join(", ") + (f.extensions.length > 6 ? "…" : "") : (f.type === "folder" ? "folders" : "everything")
+      return { id: "filter:" + f.keyword, title: "Search " + f.title, subtitle: "“" + f.keyword + " …”  ·  " + what + " in " + where, icon: "\uf002", type: "Filter", keyword: f.keyword, keywords: [f.keyword, "find", "files"] }
+    })
+    rows.push({ id: "edit-filters", title: "Edit File Search Filters", subtitle: "~/.config/omalaunch/file-filters.json", icon: "\uf013", type: "Command", keywords: ["files", "filters", "settings"] })
+    rows = rows.concat(root.recentRows)
+    if (JSON.stringify(rows) !== JSON.stringify(root.items)) {
+      root.items = rows
+      root.host.changed()
+    }
+  }
 
   function fileRow(path, id, type) {
     var dir = /\/$/.test(path)
@@ -40,6 +76,9 @@ Item {
   // ------------------------------------------------------------ search
 
   function query(text, reply) {
+    var f = Files.filterFor(text, root.filters)
+    if (f) return filterQuery(f.filter, f.words, reply)
+    root.sectionTitle = "Files"
     var words = Files.termsFrom(text)
     if (!words) return []
     if (!root.haveFd) return [{ id: "missing", title: "File search needs fd", subtitle: "sudo pacman -S fd", icon: "", type: "Files", disabled: true }]
@@ -49,6 +88,27 @@ Item {
       if (!rows.length) rows = [{ id: "none", title: "No files match “" + words.join(" ") + "”", icon: "", type: "Files", disabled: true }]
       reply(rows, "inline")
     }, 8000)
+    return null
+  }
+
+  function filterQuery(filter, words, reply) {
+    if (!root.haveFd) return [{ id: "missing", title: "File search needs fd", subtitle: "sudo pacman -S fd", icon: "\uf071", type: "Files", disabled: true }]
+    var args = Files.fdArgs(filter, words, root.host.home)
+    var argv
+    if (words.length) {
+      argv = ["fd", "--max-results", "400"].concat(args)
+    } else {
+      // No terms: the newest matches first.
+      argv = ["bash", "-c", 'fd -0 --changed-within 365d "$@" | head -z -n 4000 | xargs -0 -r stat -c "%Y %n" -- 2>/dev/null | sort -rn | head -n 30 | cut -d" " -f2-', "bash"].concat(args)
+    }
+    root.host.capture(argv, function(code, out) {
+      var lines = String(out || "").split("\n").filter(function(l) { return l })
+      var paths = words.length ? Files.rank(lines, words, 30) : lines
+      var rows = paths.map(function(p) { return root.fileRow(p, "find:" + p) })
+      if (!rows.length) rows = [{ id: "none", title: "No " + filter.title.toLowerCase() + " match" + (words.length ? " “" + words.join(" ") + "”" : ""), icon: "\uf15b", type: "Files", disabled: true }]
+      root.sectionTitle = filter.title
+      reply(rows, "inline")
+    }, 10000)
     return null
   }
 
@@ -72,10 +132,8 @@ Item {
             return r
           })
         rows.unshift({ id: "recent-list", title: "Recent Documents", subtitle: rows.length + " recently used files", icon: "", type: "Command", keywords: ["recent", "files", "history"] })
-        if (JSON.stringify(rows) !== JSON.stringify(root.items)) {
-          root.items = rows
-          root.host.changed()
-        }
+        root.recentRows = rows
+        root.publish()
       })
     })
   }
@@ -84,6 +142,8 @@ Item {
 
   function actions(row) {
     if (row.id === "recent-list") return [{ id: "show", title: "Show Recent Documents" }]
+    if (row.keyword) return [{ id: "search", title: row.title }]
+    if (row.id === "edit-filters") return [{ id: "edit", title: "Edit Filters" }]
     if (!row.path) return [{ id: "none", title: "Nothing to do" }]
     return [
       { id: "open", title: row.folder ? "Open Folder" : "Open" },
@@ -104,6 +164,16 @@ Item {
         return c
       })
       return { close: false, push: { id: "files:recent", title: "Recent Documents", rows: list } }
+    }
+    if (row.keyword) {
+      root.host.setQuery(row.keyword + " ")
+      return { close: false }
+    }
+    if (row.id === "edit-filters") {
+      // Write the defaults first so there is something to edit.
+      var script = '[[ -e $1 ]] || { mkdir -p "$(dirname "$1")" && printf "%s\\n" "$2" > "$1"; }; exec omarchy-launch-editor "$1"'
+      root.host.exec(["bash", "-c", script, "bash", root.filtersFile, JSON.stringify(Files.DEFAULT_FILTERS, null, 2)])
+      return { close: true }
     }
     if (!row.path) return { close: false }
     var dir = row.folder ? row.path : row.path.slice(0, row.path.lastIndexOf("/")) || "/"

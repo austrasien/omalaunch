@@ -77,6 +77,8 @@ Item {
 | `boost` | Number added to the rank score; use sparingly. |
 | `copy` | Text for Ctrl+Shift+C (defaults to the title). |
 | `disabled` | Shown greyed out; Enter does nothing. |
+| `previewPath` | File shown by Quick Look (falls back to `path`). |
+| `previewText` | Text shown by Quick Look instead of a file. |
 
 Any other fields are kept and handed back to `actions()` and `run()`.
 

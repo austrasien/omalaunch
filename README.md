@@ -18,6 +18,10 @@ your scripts and plugins, ranked by what you actually use.
   (`'name` or `find name`, plus recent documents), clipboard history
   (`clip text`), music controls, and a dictionary (`define word`,
   `spell word`).
+- **Quick Look.** Tap `Shift` (or `Ctrl+Y`) to preview the selected file:
+  images, PDFs, videos, text and Markdown, folders, clipboard entries.
+- **Search filters.** `pdf facture`, `img`, `doc`, `vid`: file searches tied
+  to extensions and folders, editable in `~/.config/omalaunch/file-filters.json`.
 - **Shell and keys.** `> command` runs a command; any row can get its own
   Hyprland key (`Ctrl+Shift+H`); `Ctrl+L` shows a result in Large Type.
 - **Sync.** `omalaunch sync ~/Dropbox/omalaunch` keeps rankings and settings
@@ -56,6 +60,7 @@ omalaunch doctor
 | `Ctrl+Shift+A` | Set an alias |
 | `Ctrl+Shift+H` | Give the row its own key |
 | `Ctrl+L` | Large Type |
+| `Shift` (tap) / `Ctrl+Y` | Quick Look (`Shift+↑/↓` scrolls it) |
 | `Ctrl+Shift+C` | Copy |
 | `Alt+Shift+D` | Hide the row ("Show Disabled Items" restores it) |
 | `Esc` / `Shift+Esc` | Back / back to root |

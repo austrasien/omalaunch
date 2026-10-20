@@ -46,7 +46,7 @@ the repo's `plugins/` are installed there by `omalaunch install`:
 |---|---|
 | `calculator` | Arithmetic, currencies (ECB daily rates), units with `qalc`. |
 | `claude` | `? question` answered by the claude CLI. |
-| `files` | `'term` or `find term`: files and folders under `~` (fd, hidden and ignored files skipped). Recently used documents (`recently-used.xbel`) are searchable rows and a "Recent Documents" list. |
+| `files` | `'term` or `find term`: files and folders under `~` (fd, hidden and ignored files skipped). Search filters: `<keyword> term` limited to extensions and folders (`~/.config/omalaunch/file-filters.json`; defaults `pdf`, `img`, `doc`, `vid`); a keyword with no term lists the newest matches of the past year. Recently used documents (`recently-used.xbel`) are searchable rows and a "Recent Documents" list. |
 | `clipboard` | `clip text` searches Omarchy's clipboard history; "Clipboard History" lists it. Enter pastes into the focused window, Ctrl+Enter copies. |
 | `music` | Play/Pause, Next, Previous for the active MPRIS player, with the current track. |
 | `dictionary` | `define word` (Wiktionary, English glosses for any language), `spell word` (hunspell). |
@@ -105,6 +105,7 @@ alias. For a query `q` (lower-cased, accents stripped):
 | `Ctrl+Shift+A` | set an alias for the row |
 | `Ctrl+Shift+H` | give the row its own Hyprland key (typed as `SUPER + SHIFT + B`; empty removes it) |
 | `Ctrl+L` | show the row's copy text (else its title) in Large Type; any key closes it |
+| `Shift` (tap) / `Ctrl+Y` | Quick Look: a pane beside the list previews the selected row's file (`previewPath` or `path`: images, PDF first page, video frame, text, Markdown, folder listing, else file info) or its `previewText`; it follows the selection, `Shift+↑/↓` scrolls it, `Esc` closes it |
 | `Esc` | close the action panel, else leave the submenu, else clear the query, else close |
 | `Shift+Esc` | back to root |
 | `Ctrl+A/E/B/F/W/U` | emacs-style editing in the field |

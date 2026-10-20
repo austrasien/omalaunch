@@ -32,3 +32,18 @@ test("files: recently-used.xbel", () => {
   assert.deepStrictEqual(Files.parseRecent(xml).map((r) => r.path), ["/h/c&d.txt", "/h/a b.pdf"])
   assert.strictEqual(Files.tilde("/home/u/x", "/home/u"), "~/x")
 })
+
+test("files: search filters", () => {
+  const filters = Files.normalizeFilters([
+    { keyword: "PDF", title: "PDFs", extensions: [".pdf"] },
+    { keyword: "pdf", title: "duplicate" },
+    { keyword: "two words" },
+    { keyword: "proj", title: "Projects", type: "folder", folders: ["~/src"], hidden: true }
+  ])
+  assert.deepStrictEqual(filters.map((f) => [f.keyword, f.type, f.extensions.join(",")]), [["pdf", "file", "pdf"], ["proj", "folder", ""]])
+  assert.strictEqual(Files.filterFor("pdf", filters), null)
+  assert.deepStrictEqual(Files.filterFor("pdf ", filters).words, [])
+  assert.deepStrictEqual(Files.filterFor("Pdf facture 2026", filters).words, ["facture", "2026"])
+  assert.strictEqual(Files.filterFor("pdfs x", filters), null)
+  assert.deepStrictEqual(Files.fdArgs(filters[1], ["omal"], "/home/u"), ["-i", "-F", "--absolute-path", "-H", "-t", "d", "--", "omal", "/home/u/src"])
+})
