@@ -1,0 +1,9 @@
+{
+  "id": "calculator",
+  "name": "Calculator",
+  "version": "1.0.0",
+  "author": "austrasien",
+  "license": "MIT",
+  "description": "Inline arithmetic, currency conversion (ECB daily rates) and, with qalc installed, units.",
+  "entry": "Provider.qml"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "claude",
+  "name": "Claude",
+  "version": "1.0.0",
+  "author": "austrasien",
+  "license": "MIT",
+  "description": "Ask Claude from the launcher: \"? question\" for a quick answer in a floating terminal, or open a conversation.",
+  "entry": "Provider.qml"
+}
