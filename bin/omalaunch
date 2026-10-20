@@ -156,7 +156,7 @@ do_bind() {
   [[ -f $HYPR/hyprland.lua ]] || fail "this needs a Lua Hyprland config ($HYPR/hyprland.lua)"
   sig=$(key_signature "$combo") || fail "could not read a key in \"$combo\""
   taken=$(hyprctl binds -j | jq -r --arg sig "$sig" \
-    '.[] | select(((.modmask|tostring) + " " + (.key|ascii_upcase)) == $sig) | "\(.description // .dispatcher) \(.arg)"' | grep -v "omalaunch" || true)
+    '.[] | select(((.modmask|tostring) + " " + (.key|ascii_upcase)) == $sig) | "\(.description // .dispatcher) \(.arg)"' | grep -vE '^omalaunch [0-9]+$' || true)
   [[ -z $taken ]] || fail "$combo is already taken by: $taken"
 
   printf '%s\n' "-- omalaunch key binding (managed by \`omalaunch bind\`; rerun it to change the key)" \
@@ -235,7 +235,7 @@ do_hotkey() {
       sig=$(key_signature "$combo") || fail "could not read a key in \"$1\""
       [[ ${sig%% *} != 0 ]] || fail "add at least one modifier (SUPER, ALT, CTRL, SHIFT)"
       taken=$(hyprctl binds -j | jq -r --arg sig "$sig" \
-        '.[] | select(((.modmask|tostring) + " " + (.key|ascii_upcase)) == $sig) | "\(.description // .dispatcher) \(.arg)"' | grep -v "omalaunch" || true)
+        '.[] | select(((.modmask|tostring) + " " + (.key|ascii_upcase)) == $sig) | "\(.description // .dispatcher) \(.arg)"' | grep -v '^omalaunch: ' || true)
       [[ -z $taken ]] || fail "$combo is already taken by: $taken"
       # One hotkey per row and one row per combo.
       awk -F'\t' -v k="$key" 'BEGIN { OFS = FS } $2 != k { print }' "$HOTKEYS" |
