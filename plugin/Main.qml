@@ -39,6 +39,7 @@ Item {
   property string promptMode: ""       // "" | "alias"
   property var promptRow: null
   property int historyIndex: -1
+  property string largeText: ""
   readonly property real zoom: store.state.zoom || 1
   readonly property var selectedRow: itemsOnly.length ? itemsOnly[Math.min(selected, itemsOnly.length - 1)].row : null
   readonly property var deps: ({ Rank: Rank, State: State })
@@ -60,6 +61,7 @@ Item {
   Omarchy { id: omarchyProvider }
   Scripts { id: scriptsProvider }
   Web { id: webProvider }
+  ShellCommand { id: shellProvider }
   Builtin { id: builtinProvider; launcher: root }
 
   onShellChanged: if (root.shell) Qt.callLater(root.startOnce)
@@ -75,6 +77,7 @@ Item {
     host.register("omarchy", omarchyProvider)
     host.register("scripts", scriptsProvider)
     host.register("web", webProvider)
+    host.register("shell", shellProvider)
     host.register("builtin", builtinProvider)
     host.loadUserPlugins()
   }
@@ -266,6 +269,7 @@ Item {
     var keys = ["↵", "⌃↵", "⌃⇧↵"]
     for (var i = 0; i < list.length && i < 3; i++) if (!list[i].shortcut) list[i].shortcut = keys[i]
     if (row.dynamic && row.copy !== undefined) list.push({ id: "omalaunch.copy", title: "Copy", shortcut: "⌃⇧C" })
+    list.push({ id: "omalaunch.large", title: "Show in Large Type", shortcut: "⌃L" })
     if (!isCatalogRow(row)) return list
     var fav = State.isFavorite(store.state, row.key)
     list.push({ id: "omalaunch.favorite", title: fav ? "Remove from Favorites" : "Add to Favorites", shortcut: "⌃⇧F" })
@@ -302,6 +306,9 @@ Item {
     case "omalaunch.copy":
       exec.detached(["wl-copy", "--", String(row.copy !== undefined && row.copy !== "" ? row.copy : row.title)])
       toast("Copied")
+      return
+    case "omalaunch.large":
+      showLargeType(row.copy !== undefined && row.copy !== "" ? row.copy : row.title)
       return
     case "omalaunch.reset": store.update(function(s) { State.resetRanking(s, row.key) }); toast("Ranking reset"); return
     case "omalaunch.disable":
@@ -359,6 +366,15 @@ Item {
     window.syncSearchText(root.query)
   }
 
+  function showLargeType(text) {
+    var t = String(text || "").trim()
+    if (!t) { closeLargeType(); return }
+    hide()
+    root.largeText = t
+  }
+
+  function closeLargeType() { root.largeText = "" }
+
   function setZoom(z) {
     store.update(function(s) { s.zoom = Math.max(0.7, Math.min(1.6, Math.round(z * 10) / 10)) })
   }
@@ -412,6 +428,12 @@ Item {
     }
   }
 
+  LargeType {
+    launcher: root
+    text: root.largeText
+    screen: window.screen
+  }
+
   // ------------------------------------------------------- entry points
 
   GlobalShortcut {
@@ -431,6 +453,7 @@ Item {
     function ping(): string { return root.started ? "ok" : "starting" }
     function query(text: string): string { root.show(JSON.stringify({ query: text })); return "shown" }
     function run(key: string): string { return root.runKey(key) }
+    function large(text: string): string { root.showLargeType(text); return "ok" }
     function reload(): string { root.reloadPlugins(); return "ok" }
     function providers(): string {
       return JSON.stringify(host.providers.map(function(p) { return { id: p.id, builtin: p.builtin, items: (p.object.items || []).length } }))

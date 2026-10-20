@@ -279,6 +279,7 @@ PanelWindow {
       return true
     }
     if (ctrl && k === Qt.Key_K) { if (row) launcher.actionPanelOpen = true; return true }
+    if (ctrl && !shift && k === Qt.Key_L) { if (row) launcher.runAction(row, { id: "omalaunch.large" }); return true }
 
     if (k === Qt.Key_Up) {
       if (ctrl && alt) { if (row) launcher.runAction(row, { id: "omalaunch.fav-up" }); return true }
