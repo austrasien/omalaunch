@@ -1,0 +1,9 @@
+{
+  "id": "web-keywords",
+  "name": "Web Keywords",
+  "version": "1.0.0",
+  "author": "austrasien",
+  "license": "MIT",
+  "description": "Site searches by keyword (gh omalaunch, yt …), editable in ~/.config/omalaunch/web.json.",
+  "entry": "Provider.qml"
+}
