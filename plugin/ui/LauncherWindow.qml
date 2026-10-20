@@ -66,7 +66,7 @@ PanelWindow {
     return -1
   }
 
-  onShownChanged: if (shown) focusSearch(true)
+  onShownChanged: if (shown) { pointerGate.moved = false; pointerGate.last = Qt.point(-1, -1); focusSearch(true) }
 
   MouseArea {
     anchors.fill: parent
@@ -77,7 +77,8 @@ PanelWindow {
     id: card
     width: window.cardWidth
     height: window.searchHeight + listArea.height + window.footerHeight + 2 * window.borderWidth
-    x: Math.round((window.width - width) / 2)
+    // With Quick Look open, card and preview are centred together.
+    x: Math.round((window.width - width - (preview.visible ? preview.width + window.previewGap : 0)) / 2)
     // Centred at its tallest, so the search field stays put while the list
     // grows and shrinks with the results.
     y: Math.max(Style.gapsOut, Math.round((window.height - (window.searchHeight + window.listMax + window.footerHeight + 2 * window.borderWidth)) / 2))
@@ -150,8 +151,14 @@ PanelWindow {
 
         Keys.priority: Keys.BeforeItem
         Keys.onPressed: function(event) {
+          window.shiftAlone = event.key === Qt.Key_Shift && !event.isAutoRepeat
           if (actionPanel.visible) { if (actionPanel.handleKey(event)) event.accepted = true; return }
           if (window.handleKey(event)) event.accepted = true
+        }
+        // A Shift tap on its own toggles Quick Look.
+        Keys.onReleased: function(event) {
+          if (event.key === Qt.Key_Shift && window.shiftAlone && !actionPanel.visible && !launcher.promptMode) launcher.togglePreview()
+          window.shiftAlone = false
         }
       }
     }
@@ -206,8 +213,15 @@ PanelWindow {
       QtObject {
         id: pointerGate
         property bool moved: false
+        property point last: Qt.point(-1, -1)
       }
-      HoverHandler { onPointChanged: pointerGate.moved = true }
+      HoverHandler {
+        onPointChanged: {
+          var p = point.scenePosition
+          if (pointerGate.last.x < 0) { pointerGate.last = p; return }
+          if (Math.abs(p.x - pointerGate.last.x) + Math.abs(p.y - pointerGate.last.y) > 3) pointerGate.moved = true
+        }
+      }
     }
 
     // ------------------------------------------------------------ footer
@@ -259,7 +273,23 @@ PanelWindow {
     }
   }
 
+  // ---------------------------------------------------------- quick look
+  readonly property int previewGap: px(12)
+  PreviewPane {
+    id: preview
+    theme: window
+    visible: launcher.previewOpen
+    preview: launcher.previewData
+    x: card.x + card.width + window.previewGap
+    y: card.y
+    width: Math.max(0, Math.min(px(820), window.width - window.cardWidth - window.previewGap - 2 * Style.gapsOut))
+    height: window.searchHeight + window.listMax + window.footerHeight + 2 * window.borderWidth
+  }
+
+
   // ------------------------------------------------------------- keys
+
+  property bool shiftAlone: false
 
   function handleKey(event) {
     var ctrl = (event.modifiers & Qt.ControlModifier) !== 0
@@ -280,6 +310,8 @@ PanelWindow {
       return true
     }
     if (ctrl && k === Qt.Key_K) { if (row) launcher.actionPanelOpen = true; return true }
+    if (ctrl && !shift && k === Qt.Key_Y) { launcher.togglePreview(); return true }
+    if (launcher.previewOpen && shift && !ctrl && (k === Qt.Key_Up || k === Qt.Key_Down)) { preview.scroll(k === Qt.Key_Up ? -4 : 4); return true }
     if (ctrl && !shift && k === Qt.Key_L) { if (row) launcher.runAction(row, { id: "omalaunch.large" }); return true }
 
     if (k === Qt.Key_Up) {

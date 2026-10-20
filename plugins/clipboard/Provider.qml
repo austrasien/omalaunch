@@ -33,7 +33,7 @@ Item {
 
   function rowFor(entry, i) {
     if (entry.type === "image") {
-      return { id: "clip:" + i, title: "Image", subtitle: entry.path.slice(entry.path.lastIndexOf("/") + 1), iconSource: "file://" + entry.path, type: "Image", entry: entry, copy: entry.path }
+      return { id: "clip:" + i, title: "Image", subtitle: entry.path.slice(entry.path.lastIndexOf("/") + 1), iconSource: "file://" + entry.path, type: "Image", entry: entry, copy: entry.path, previewPath: entry.path }
     }
     var text = String(entry.text || "")
     var first = text.replace(/^\s+/, "").split("\n")[0]
@@ -45,7 +45,8 @@ Item {
       icon: /^https?:\/\//.test(text.trim()) ? "" : "",
       type: "Clipboard",
       entry: entry,
-      copy: text
+      copy: text,
+      previewText: text
     }
   }
 

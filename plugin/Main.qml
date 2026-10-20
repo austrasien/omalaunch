@@ -42,6 +42,11 @@ Item {
   property var promptRow: null
   property int historyIndex: -1
   property string largeText: ""
+  property bool previewOpen: false
+  property var previewData: null
+  property int previewSeq: 0
+  readonly property string previewScript: String(Qt.resolvedUrl("services/preview.sh")).replace(/^file:\/\//, "")
+  readonly property string previewCache: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/omalaunch/preview"
   readonly property real zoom: store.state.zoom || 1
   readonly property var selectedRow: itemsOnly.length ? itemsOnly[Math.min(selected, itemsOnly.length - 1)].row : null
   readonly property var deps: ({ Rank: Rank, State: State })
@@ -111,6 +116,7 @@ Item {
     root.closedAt = Date.now()
     root.actionPanelOpen = false
     root.promptMode = ""
+    root.previewOpen = false
     store.flush()
   }
 
@@ -158,7 +164,8 @@ Item {
 
   function rebuild() {
     root.rebuildPending = false
-    var keepKey = root.selectedRow ? root.selectedRow.key : ""
+    // Keep the selection across late provider replies only if the user moved it.
+    var keepKey = root.selectedRow && root.selected > 0 ? root.selectedRow.key : ""
     var now = Date.now()
     var secs
     if (root.stack.length) {
@@ -229,6 +236,7 @@ Item {
 
   function back() {
     if (root.actionPanelOpen) { root.actionPanelOpen = false; window.focusSearch(false); return }
+    if (root.previewOpen) { root.previewOpen = false; return }
     if (root.promptMode) { root.promptMode = ""; window.syncSearchText(root.query); return }
     if (root.stack.length) { popView(); return }
     if (root.query) { setQuery(""); return }
@@ -402,6 +410,34 @@ Item {
     window.syncSearchText(root.query)
   }
 
+  // ------------------------------------------------------- quick look
+
+  function togglePreview() {
+    root.previewOpen = !root.previewOpen
+    if (root.previewOpen) updatePreview()
+  }
+
+  onSelectedRowChanged: if (root.previewOpen) previewTimer.restart()
+  Timer { id: previewTimer; interval: 70; onTriggered: root.updatePreview() }
+
+  // Rows preview `previewText`, else the file at `previewPath` / `path`.
+  function updatePreview() {
+    var row = root.selectedRow
+    var seq = ++root.previewSeq
+    if (!row) { root.previewData = { kind: "none" }; return }
+    if (row.previewText !== undefined && row.previewText !== "") {
+      root.previewData = { kind: "text", name: row.title, text: String(row.previewText), size: String(row.previewText).length, mime: "text/plain" }
+      return
+    }
+    var path = row.previewPath || row.path || ""
+    if (!path) { root.previewData = { kind: "none", name: row.title }; return }
+    root.previewData = { kind: "loading", name: path.slice(path.lastIndexOf("/") + 1) }
+    exec.capture(["bash", root.previewScript, path, root.previewCache], function(code, out) {
+      if (seq !== root.previewSeq) return
+      try { root.previewData = JSON.parse(out) } catch (e) { root.previewData = { kind: "info", name: path.slice(path.lastIndexOf("/") + 1) } }
+    }, 15000)
+  }
+
   function showLargeType(text) {
     var t = String(text || "").trim()
     if (!t) { closeLargeType(); return }
@@ -489,6 +525,7 @@ Item {
     function ping(): string { return root.started ? "ok" : "starting" }
     function query(text: string): string { root.show(JSON.stringify({ query: text })); return "shown" }
     function run(key: string): string { return root.runKey(key) }
+    function quicklook(): string { root.togglePreview(); return root.previewOpen ? "open" : "closed" }
     function large(text: string): string { root.showLargeType(text); return "ok" }
     function reload(): string { root.reloadPlugins(); return "ok" }
     function providers(): string {
