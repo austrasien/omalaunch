@@ -1,0 +1,9 @@
+{
+  "id": "files",
+  "name": "Files",
+  "version": "1.0.0",
+  "author": "austrasien",
+  "license": "MIT",
+  "description": "Find files in your home folder (' or find …) and reopen recent documents.",
+  "entry": "Provider.qml"
+}
