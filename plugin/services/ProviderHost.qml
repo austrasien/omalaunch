@@ -266,6 +266,9 @@ Item {
         root.exec.detached(["setsid", "uwsm-app", "--", "xdg-terminal-exec", "--app-id=TUI.float", "--title=omalaunch", "-e", "bash", "-lc", cmd])
       }
       function toast(text) { root.launcher.toast(String(text)) }
+      // Ask for one line of text in the search field; callback(text) on
+      // Enter, nothing on Esc.
+      function ask(label, callback, initial) { root.launcher.askInput(String(label), callback, initial) }
       function close() { root.launcher.hide() }
       function setQuery(text) { root.launcher.setQuery(String(text)) }
       function changed() { root.changed() }

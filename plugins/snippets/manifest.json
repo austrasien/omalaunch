@@ -1,0 +1,9 @@
+{
+  "id": "snippets",
+  "name": "Snippets",
+  "version": "1.0.0",
+  "author": "austrasien",
+  "license": "MIT",
+  "description": "“;name” pastes ~/.config/omalaunch/snippets/name.txt with {date}, {clipboard}, {input:…} and other variables filled in.",
+  "entry": "Provider.qml"
+}

@@ -138,6 +138,7 @@ PanelWindow {
           anchors.fill: parent
           visible: search.text.length === 0
           text: launcher.promptMode === "alias" ? "Alias for " + (launcher.promptRow ? launcher.promptRow.title : "") + " (empty removes it)"
+            : launcher.promptMode === "input" ? launcher.promptLabel
             : launcher.promptMode === "hotkey" ? "Keys for " + (launcher.promptRow ? launcher.promptRow.title : "") + ", e.g. SUPER + SHIFT + B (empty removes them)"
             : (launcher.stack.length ? "Search " + launcher.stack[launcher.stack.length - 1].title + "…" : "Search apps, commands, plugins…")
           color: window.muted

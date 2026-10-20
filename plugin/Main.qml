@@ -36,7 +36,9 @@ Item {
   property int selected: 0             // index into itemsOnly
   property string toastText: ""
   property bool actionPanelOpen: false
-  property string promptMode: ""       // "" | "alias" | "hotkey"
+  property string promptMode: ""       // "" | "alias" | "hotkey" | "input"
+  property string promptLabel: ""
+  property var promptCallback: null
   property var hotkeys: ({})           // row key -> combo, from `omalaunch hotkey`
   readonly property string cli: Quickshell.env("HOME") + "/.local/bin/omalaunch"
   property var promptRow: null
@@ -398,7 +400,27 @@ Item {
     }, 10000)
   }
 
+  // A plugin's question (host.ask): the answer goes to its callback.
+  function askInput(label, callback, initial) {
+    root.promptLabel = label
+    root.promptCallback = callback
+    root.promptRow = null
+    root.promptMode = "input"
+    window.syncSearchText(initial !== undefined ? String(initial) : "")
+    window.focusSearch(true)
+  }
+
   function commitPrompt(text) {
+    if (root.promptMode === "input") {
+      var cb = root.promptCallback
+      root.promptMode = ""
+      root.promptCallback = null
+      window.syncSearchText(root.query)
+      if (typeof cb === "function") {
+        try { cb(String(text)) } catch (e) { console.warn("[omalaunch] ask() callback threw:", e) }
+      }
+      return
+    }
     if (root.promptMode === "hotkey" && root.promptRow) saveHotkey(root.promptRow, text)
     if (root.promptMode === "alias" && root.promptRow) {
       var key = root.promptRow.key
