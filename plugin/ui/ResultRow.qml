@@ -23,7 +23,7 @@ Item {
     text: root.entry.header ? root.entry.title : ""
     color: theme.muted
     font.family: theme.font
-    font.pixelSize: theme.fontSize * 0.85
+    font.pixelSize: theme.captionSize
     font.weight: Font.DemiBold
   }
 
@@ -58,7 +58,7 @@ Item {
         text: root.row && root.row.icon ? root.row.icon : "•"
         color: root.selected ? theme.selFg : theme.fg
         font.family: root.row && root.row.iconFont ? root.row.iconFont : theme.font
-        font.pixelSize: theme.fontSize * 1.25
+        font.pixelSize: theme.iconSize
       }
     }
 
@@ -69,7 +69,8 @@ Item {
       text: root.row ? root.row.title : ""
       color: root.selected ? theme.selFg : theme.fg
       font.family: theme.font
-      font.pixelSize: theme.fontSize * 1.05
+      font.pixelSize: theme.titleSize
+      font.weight: Font.Medium
       elide: Text.ElideRight
     }
 
@@ -78,7 +79,7 @@ Item {
       text: root.row && root.row.subtitle ? root.row.subtitle : ""
       color: theme.muted
       font.family: theme.font
-      font.pixelSize: theme.fontSize * 0.9
+      font.pixelSize: theme.detailSize
       elide: Text.ElideRight
     }
 
@@ -88,7 +89,7 @@ Item {
       text: root.row ? ((root.row.alias ? root.row.alias + "  ·  " : "") + (root.row.favorite ? "★  " : "") + (root.row.type || "")) : ""
       color: theme.muted
       font.family: theme.font
-      font.pixelSize: theme.fontSize * 0.85
+      font.pixelSize: theme.captionSize
     }
 
     MouseArea {

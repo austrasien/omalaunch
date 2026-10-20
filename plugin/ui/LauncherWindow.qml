@@ -27,9 +27,14 @@ PanelWindow {
   readonly property color selFg: Color.menu.selectedText
   readonly property string font: Style.resolvedFontFamily
   readonly property int fontSize: Math.max(9, Math.round(Style.fontBaseSize * window.z))
+  // Text sizes of the Omarchy menu (Style.font tokens), scaled by zoom.
+  readonly property int titleSize: px(Style.font.heading)
+  readonly property int detailSize: px(Style.font.bodySmall)
+  readonly property int captionSize: px(Style.font.caption)
+  readonly property int iconSize: px(Style.font.iconLarge)
 
   readonly property int cardWidth: Math.min(px(760), width - 2 * Style.gapsOut)
-  readonly property int rowHeight: px(42)
+  readonly property int rowHeight: px(Math.max(Style.space(50), Style.font.body + Style.spacing.rowPaddingX * 2))
   readonly property int headerHeight: px(28)
   readonly property int searchHeight: px(60)
   readonly property int footerHeight: px(36)
@@ -96,7 +101,7 @@ PanelWindow {
         text: launcher.promptMode === "alias" ? "󰌌" : (launcher.stack.length ? "\uf060" : "\uf002")
         color: launcher.stack.length || launcher.promptMode ? window.accent : window.muted
         font.family: window.font
-        font.pixelSize: window.fontSize * 1.3
+        font.pixelSize: window.iconSize
         MouseArea { anchors.fill: parent; enabled: launcher.stack.length > 0; onClicked: launcher.back() }
       }
 
@@ -107,7 +112,7 @@ PanelWindow {
         text: launcher.breadcrumb + "  ›"
         color: window.accent
         font.family: window.font
-        font.pixelSize: window.fontSize * 1.15
+        font.pixelSize: window.titleSize
       }
 
       TextInput {
@@ -123,7 +128,7 @@ PanelWindow {
         selectionColor: Style.selectionFill
         selectedTextColor: window.fg
         font.family: window.font
-        font.pixelSize: window.fontSize * 1.3
+        font.pixelSize: window.titleSize
         clip: true
         focus: true
 
