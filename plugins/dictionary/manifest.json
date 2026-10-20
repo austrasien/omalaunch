@@ -1,0 +1,9 @@
+{
+  "id": "dictionary",
+  "name": "Dictionary",
+  "version": "1.0.0",
+  "author": "austrasien",
+  "license": "MIT",
+  "description": "define word (Wiktionary) and spell word (hunspell).",
+  "entry": "Provider.qml"
+}
