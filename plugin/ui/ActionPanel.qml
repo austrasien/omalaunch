@@ -55,7 +55,7 @@ Rectangle {
     text: panel.filter ? "Filter: " + panel.filter : (panel.row ? panel.row.title : "")
     color: panel.filter ? theme.accent : theme.muted
     font.family: theme.font
-    font.pixelSize: theme.fontSize * 0.9
+    font.pixelSize: theme.detailSize
     elide: Text.ElideRight
   }
 
@@ -88,7 +88,7 @@ Rectangle {
           text: modelData.shortcut || ""
           color: theme.muted
           font.family: theme.font
-          font.pixelSize: theme.fontSize * 0.85
+          font.pixelSize: theme.captionSize
         }
         MouseArea {
           anchors.fill: parent

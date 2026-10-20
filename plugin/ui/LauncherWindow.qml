@@ -31,8 +31,8 @@ PanelWindow {
   readonly property int fontSize: Math.max(9, Math.round(Style.fontBaseSize * window.z))
   // Text sizes of the Omarchy menu (Style.font tokens), scaled by zoom.
   readonly property int titleSize: px(Style.font.heading)
-  readonly property int detailSize: px(Style.font.bodySmall)
-  readonly property int captionSize: px(Style.font.caption)
+  readonly property int detailSize: px(Style.font.body)
+  readonly property int captionSize: px(Style.font.bodySmall)
   readonly property int iconSize: px(Style.font.iconLarge)
 
   readonly property int cardWidth: Math.min(px(760), width - 2 * Style.gapsOut)
@@ -272,7 +272,7 @@ PanelWindow {
         text: launcher.toastText || "omalaunch"
         color: launcher.toastText ? window.accent : window.muted
         font.family: window.font
-        font.pixelSize: window.fontSize * 0.9
+        font.pixelSize: window.detailSize
         elide: Text.ElideRight
       }
 
@@ -287,13 +287,13 @@ PanelWindow {
           text: (hints.primary ? hints.primary.title : "") + "  ↵"
           color: window.fg
           font.family: window.font
-          font.pixelSize: window.fontSize * 0.9
+          font.pixelSize: window.detailSize
         }
         Text {
           text: "Actions  ⌃K"
           color: window.muted
           font.family: window.font
-          font.pixelSize: window.fontSize * 0.9
+          font.pixelSize: window.detailSize
         }
       }
     }
