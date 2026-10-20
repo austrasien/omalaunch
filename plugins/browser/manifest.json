@@ -1,0 +1,9 @@
+{
+  "id": "browser",
+  "name": "Browser",
+  "version": "1.0.0",
+  "author": "austrasien",
+  "license": "MIT",
+  "description": "Bookmarks (searchable everywhere) and history (“b term”) of Brave, Chrome, Chromium or Vivaldi.",
+  "entry": "Provider.qml"
+}
