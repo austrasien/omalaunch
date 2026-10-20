@@ -73,7 +73,7 @@ Item {
     if (row.id === "new") return [{ id: "new", title: "New Snippet" }]
     if (row.id === "folder") return [{ id: "open", title: "Open Folder" }]
     if (row.create !== undefined) return [{ id: "create", title: row.title }]
-    return [{ id: "paste", title: "Paste" }, { id: "copy", title: "Copy" }, { id: "edit", title: "Edit Snippet" }]
+    return [{ id: "paste", title: "Paste" }, { id: "copy", title: "Copy" }, { id: "edit", title: "Edit Snippet" }, { id: "delete", title: "Delete Snippet (to Trash)" }]
   }
 
   function find(name) {
@@ -110,6 +110,16 @@ Item {
     if (actionId === "edit") {
       root.host.exec(["omarchy-launch-editor", s.file])
       return { close: true }
+    }
+    if (actionId === "delete") {
+      // To the desktop trash, so it can be restored.
+      root.host.capture(["gio", "trash", "--", s.file], function(code, out, err) {
+        if (code !== 0) { root.host.toast("Could not delete ;" + s.name + ": " + String(err || "").trim()); return }
+        root.snippets = root.snippets.filter(function(x) { return x.name !== s.name })
+        root.host.toast("Deleted ;" + s.name + " (in the Trash)")
+        root.host.refresh()
+      })
+      return { close: false }
     }
     var text = Snippets.inline(s.text, library())
     var need = Snippets.needs(text)
