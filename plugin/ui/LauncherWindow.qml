@@ -290,6 +290,13 @@ PanelWindow {
           font.pixelSize: window.detailSize
         }
         Text {
+          visible: launcher.previewOpen || launcher.canPreview(launcher.selectedRow)
+          text: (launcher.previewOpen ? "Close Preview" : "Preview") + "  ⇧"
+          color: window.muted
+          font.family: window.font
+          font.pixelSize: window.detailSize
+        }
+        Text {
           text: "Actions  ⌃K"
           color: window.muted
           font.family: window.font

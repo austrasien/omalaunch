@@ -479,6 +479,12 @@ Item {
 
   // ------------------------------------------------------- quick look
 
+  // Whether Quick Look has something to show for a row.
+  function canPreview(row) {
+    if (!row) return false
+    return !!(row.previewText || row.previewPath || row.path) || host.hasPreview(row)
+  }
+
   function togglePreview() {
     root.previewOpen = !root.previewOpen
     root.previewData = null

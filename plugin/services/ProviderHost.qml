@@ -180,6 +180,11 @@ Item {
 
   // Quick Look data from the provider's preview(row, reply), if it has one:
   // reply({ kind: "text" | "markdown" | "image", name, text?, image?, width?, height? }).
+  function hasPreview(row) {
+    var p = providerById(row.provider)
+    return !!(p && p.object && typeof p.object.preview === "function")
+  }
+
   function previewFor(row, reply) {
     var p = providerById(row.provider)
     if (!p || !p.object || typeof p.object.preview !== "function") return false
