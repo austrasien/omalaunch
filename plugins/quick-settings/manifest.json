@@ -1,0 +1,9 @@
+{
+  "id": "quick-settings",
+  "name": "Quick Settings",
+  "version": "1.0.0",
+  "author": "austrasien",
+  "license": "MIT",
+  "description": "vol 40, lum 70, wifi, bt, sortie, dnd, batterie: volume, brightness, Wi-Fi, Bluetooth, audio output, do not disturb and battery.",
+  "entry": "Provider.qml"
+}
