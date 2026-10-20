@@ -255,6 +255,54 @@ do_hotkey() {
   esac
 }
 
+# ------------------------------------------------------------------ sync
+#
+# Rankings, aliases, favourites and plugin data live in DATA. `sync DIR`
+# moves them into DIR (a synced or dotfiles folder) and leaves a symlink;
+# the directory is linked rather than state.json, because the plugin writes
+# state.json atomically (rename over the target), which would replace a
+# file symlink with a plain file.
+
+readonly DATA="${OMALAUNCH_DATA:-$HOME/.local/share/omalaunch}"   # where plugin/services/Store.qml keeps state.json
+
+do_sync() {
+  local target=${1:-}
+  [[ -n $target ]] || { [[ -L $DATA ]] && note "synced to $(readlink -f "$DATA")" || note "not synced; usage: omalaunch sync DIR | off"; return; }
+  if [[ $target == off ]]; then
+    [[ -L $DATA ]] || { note "not synced"; return; }
+    local from
+    from=$(readlink -f "$DATA")
+    rm "$DATA" && cp -a "$from" "$DATA" || fail "could not copy $from back"
+    [[ -n $(live_link) ]] && do_reload >/dev/null
+    note "local again; $from left as it is"
+    return
+  fi
+  mkdir -p "$target" || fail "cannot create $target"
+  target=$(readlink -f "$target")
+  [[ -L $DATA && $(readlink -f "$DATA") == "$target" ]] && { note "already synced to $target"; return; }
+  if [[ -d $DATA && ! -L $DATA ]]; then
+    local f stamp
+    stamp=$(date +%s)
+    shopt -s dotglob nullglob
+    for f in "$DATA"/*; do
+      if [[ -e $target/$(basename "$f") ]]; then
+        # The synced copy wins (another machine set it up); keep ours aside.
+        mv "$f" "$target/$(basename "$f").local-$stamp"
+      else
+        mv "$f" "$target/"
+      fi
+    done
+    shopt -u dotglob nullglob
+    rmdir "$DATA" || fail "$DATA is not empty"
+  else
+    rm -f "$DATA"
+  fi
+  mkdir -p "$(dirname "$DATA")"
+  ln -s "$target" "$DATA"
+  [[ -n $(live_link) ]] && do_reload >/dev/null   # reread state.json from its new home
+  note "rankings and settings now live in $target"
+}
+
 # ---------------------------------------------------------------- doctor
 
 do_doctor() {
@@ -274,6 +322,9 @@ do_doctor() {
   command -v wl-copy >/dev/null && report ok "wl-copy available" || report bad "wl-copy missing (copy actions)"
   command -v qalc >/dev/null && report ok "qalc available (units)" || report tip "optional: sudo pacman -S libqalculate for units in the calculator"
   command -v claude >/dev/null && report ok "claude CLI available" || report tip "optional: the claude CLI for the Claude plugin"
+  command -v fd >/dev/null && report ok "fd available (file search)" || report bad "fd missing (file search): sudo pacman -S fd"
+  hunspell -D </dev/null 2>&1 | grep -q '^/' && report ok "hunspell dictionaries available (spell)" || report tip "optional: sudo pacman -S hunspell-fr hunspell-en_us for “spell word”"
+  [[ -L $DATA ]] && report ok "settings synced to $(readlink -f "$DATA")"
   local errors
   errors=$(send errors 2>/dev/null)
   [[ -z $errors || $errors == "[]" ]] && report ok "no plugin errors" || report bad "plugin errors: $errors"
@@ -299,6 +350,7 @@ omalaunch — keyboard launcher for Omarchy
   bind [KEYS]              bind KEYS (default "ALT + SPACE"); unbind removes it
   hotkey set KEYS ROW      give one row its own key (also Ctrl+Shift+H in the launcher)
   hotkey unset ROW | list
+  sync DIR | off           keep rankings and settings in DIR (synced folder, dotfiles)
   reload | dev             reload the plugin once / on every save
   doctor                   check the setup
 EOF
@@ -319,6 +371,7 @@ case $cmd in
   bind) do_bind "$*" ;;
   unbind) do_unbind ;;
   hotkey) do_hotkey "$@" ;;
+  sync) do_sync "$@" ;;
   doctor) do_doctor ;;
   help|-h|--help) do_help ;;
   *) do_help >&2; exit 1 ;;
