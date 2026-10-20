@@ -607,7 +607,10 @@ Item {
       return JSON.stringify(host.providers.map(function(p) { return { id: p.id, builtin: p.builtin, items: (p.object.items || []).length } }))
     }
     function errors(): string { return JSON.stringify(host.loadErrors) }
-    function debug(): string { return JSON.stringify({ shell: !!root.shell, appLibrary: !!(root.shell && root.shell.appLibrary), hostLib: !!host.appLibrary }) }
+    function debug(): string {
+      return JSON.stringify({ shell: !!root.shell, appLibrary: !!(root.shell && root.shell.appLibrary), hostLib: !!host.appLibrary,
+        sizes: { title: window.titleSize, detail: window.detailSize, caption: window.captionSize, base: window.fontSize, zoom: window.z }, muted: String(window.muted) })
+    }
     // Send a query to the providers without opening the launcher; read the
     // rows back with search() once they answer (testing).
     function probe(text: string): string {

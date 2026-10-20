@@ -31,8 +31,8 @@ PanelWindow {
   readonly property int fontSize: Math.max(9, Math.round(Style.fontBaseSize * window.z))
   // Text sizes of the Omarchy menu (Style.font tokens), scaled by zoom.
   readonly property int titleSize: px(Style.font.heading)
-  readonly property int detailSize: px(Style.font.body)
-  readonly property int captionSize: px(Style.font.bodySmall)
+  readonly property int detailSize: px(Style.font.subtitle)
+  readonly property int captionSize: px(Style.font.body)
   readonly property int iconSize: px(Style.font.iconLarge)
 
   readonly property int cardWidth: Math.min(px(760), width - 2 * Style.gapsOut)
