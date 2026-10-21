@@ -31,6 +31,9 @@ Item {
   property string thread: ""
   property double threadAt: 0
   property string answerText: ""
+  // Model for answers in the launcher: Sonnet answers faster than the
+  // default. Conversations opened in Claude Code keep the CLI's own model.
+  property string quickModel: "sonnet"
   readonly property string prompt: "You are answering inside a desktop launcher, under its search field. Be concise and direct; use short Markdown (lists, bold, code). Answer in the language of the question."
 
 
@@ -202,7 +205,7 @@ Item {
   function ask(question, fresh) {
     stop()
     var follow = !fresh && root.thread && Date.now() - root.threadAt < 15 * 60000
-    var args = ["-p", question, "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--append-system-prompt", root.prompt]
+    var args = ["-p", question, "--model", root.quickModel, "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--append-system-prompt", root.prompt]
     if (follow) args = args.concat(["--resume", root.thread])
     root.answerText = ""
     var session = follow ? root.thread : ""
