@@ -321,6 +321,7 @@ do_doctor() {
   answering && report ok "plugin answers" || report bad "plugin does not answer — omalaunch reload"
   command -v wl-copy >/dev/null && report ok "wl-copy available" || report bad "wl-copy missing (copy actions)"
   command -v qalc >/dev/null && report ok "qalc available (units)" || report tip "optional: sudo pacman -S libqalculate for units in the calculator"
+  command -v f3d >/dev/null && report ok "f3d available (3D previews)" || report tip "optional: sudo pacman -S f3d for 3D model previews"
   command -v claude >/dev/null && report ok "claude CLI available" || report tip "optional: the claude CLI for the Claude plugin"
   command -v fd >/dev/null && report ok "fd available (file search)" || report bad "fd missing (file search): sudo pacman -S fd"
   hunspell -D </dev/null 2>&1 | grep -q '^/' && report ok "hunspell dictionaries available (spell)" || report tip "optional: sudo pacman -S hunspell-fr hunspell-en_us for “spell word”"

@@ -76,9 +76,13 @@ Rectangle {
   }
 
   // -------------------------------------------------------------- body
+  readonly property string captionText: root.preview && root.preview.caption ? root.preview.caption : ""
+  readonly property bool scrolls: root.kind === "text" || root.kind === "markdown" || root.kind === "dir" || root.kind === "rich" || root.kind === "pages"
+  readonly property var activeFlick: root.kind === "pages" ? pagesFlick : flick
+
   Item {
     id: body
-    anchors { left: parent.left; right: parent.right; top: rule.bottom; bottom: parent.bottom; margins: theme.borderWidth + theme.px(16) }
+    anchors { left: parent.left; right: parent.right; top: rule.bottom; bottom: captionBox.top; margins: theme.borderWidth + theme.px(16) }
 
     Image {
       anchors.fill: parent
@@ -92,10 +96,41 @@ Rectangle {
       mipmap: true
     }
 
+    // PDF pages, one under the other.
+    Flickable {
+      id: pagesFlick
+      anchors.fill: parent
+      visible: root.kind === "pages"
+      contentWidth: width
+      contentHeight: pagesColumn.height
+      clip: true
+      boundsBehavior: Flickable.StopAtBounds
+
+      Column {
+        id: pagesColumn
+        width: pagesFlick.width
+        spacing: theme.px(12)
+        Repeater {
+          model: root.kind === "pages" && root.preview.pages ? root.preview.pages : []
+          delegate: Image {
+            required property var modelData
+            width: pagesColumn.width
+            height: root.preview && root.preview.width ? Math.round(width * root.preview.height / root.preview.width) : width * 1.414
+            source: "file://" + modelData
+            sourceSize.width: Math.max(1, width * 2)
+            fillMode: Image.PreserveAspectFit
+            asynchronous: true
+            smooth: true
+            mipmap: true
+          }
+        }
+      }
+    }
+
     Flickable {
       id: flick
       anchors.fill: parent
-      visible: root.kind === "text" || root.kind === "markdown" || root.kind === "dir"
+      visible: root.kind === "text" || root.kind === "markdown" || root.kind === "dir" || root.kind === "rich"
       contentWidth: width
       contentHeight: textView.paintedHeight
       clip: true
@@ -103,13 +138,14 @@ Rectangle {
 
       Text {
         id: textView
+        readonly property bool code: root.kind === "rich" && /^<pre>/.test(root.preview.html || "")
         width: flick.width
-        text: root.preview && root.preview.text !== undefined ? root.preview.text : ""
-        textFormat: root.kind === "markdown" ? Text.MarkdownText : Text.PlainText
-        wrapMode: root.kind === "markdown" ? Text.Wrap : Text.WrapAnywhere
+        text: !root.preview ? "" : (root.kind === "rich" ? (root.preview.html || "") : (root.preview.text !== undefined ? root.preview.text : ""))
+        textFormat: root.kind === "markdown" ? Text.MarkdownText : (root.kind === "rich" ? Text.RichText : Text.PlainText)
+        wrapMode: root.kind === "markdown" || root.kind === "rich" ? Text.Wrap : Text.WrapAnywhere
         color: theme.fg
         linkColor: theme.accent
-        font.family: root.kind === "markdown" ? theme.font : "monospace"
+        font.family: root.kind === "markdown" || (root.kind === "rich" && !code) ? theme.font : "monospace"
         font.pixelSize: root.kind === "markdown" ? theme.fontSize : theme.detailSize
         lineHeight: 1.15
       }
@@ -121,7 +157,7 @@ Rectangle {
       spacing: theme.px(10)
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
-        text: root.kind === "loading" ? "" : (root.kind === "info" ? "" : "")
+        text: root.kind === "loading" ? "" : (root.kind === "info" ? "\uf15b" : "\uf06e")
         color: theme.muted
         font.family: theme.font
         font.pixelSize: theme.px(64)
@@ -138,11 +174,32 @@ Rectangle {
     }
   }
 
-  // Scroll the text with the keyboard while the list keeps focus.
-  function scroll(lines) {
-    if (!flick.visible) return
-    flick.contentY = Math.max(0, Math.min(flick.contentHeight - flick.height, flick.contentY + lines * theme.px(18)))
+  // Details under the picture: dimensions, duration, title and author…
+  Item {
+    id: captionBox
+    anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: theme.borderWidth }
+    height: root.captionText ? captionLabel.paintedHeight + theme.px(24) : 0
+    visible: root.captionText !== ""
+
+    Text {
+      id: captionLabel
+      anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; leftMargin: theme.px(20); rightMargin: theme.px(20) }
+      text: root.captionText
+      textFormat: Text.RichText
+      wrapMode: Text.Wrap
+      color: theme.muted
+      font.family: theme.font
+      font.pixelSize: theme.detailSize
+      horizontalAlignment: root.kind === "info" ? Text.AlignHCenter : Text.AlignLeft
+    }
   }
 
-  onPreviewChanged: flick.contentY = 0
+  // Scroll the text or pages with the keyboard while the list keeps focus.
+  function scroll(lines) {
+    var f = root.activeFlick
+    if (!f.visible) return
+    f.contentY = Math.max(0, Math.min(f.contentHeight - f.height, f.contentY + lines * theme.px(18)))
+  }
+
+  onPreviewChanged: { flick.contentY = 0; pagesFlick.contentY = 0 }
 }

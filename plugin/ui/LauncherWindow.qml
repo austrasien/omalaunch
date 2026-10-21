@@ -331,16 +331,21 @@ PanelWindow {
   readonly property var previewSize: {
     var d = launcher.previewData
     var kind = d ? d.kind : "none"
-    if (kind === "image" && d.width > 0 && d.height > 0) {
+    // Room for the caption under the picture (a line per <br>).
+    var caption = d && d.caption ? Math.round(((d.caption.match(/<br>/g) || []).length + 1) * window.detailSize * 1.45 + px(24)) : 0
+    var chromeH = window.previewChromeHeight + caption
+    if ((kind === "image" || kind === "pages") && d.width > 0 && d.height > 0) {
       var ratio = d.width / d.height
-      var w = Math.min(window.previewMaxWidth - window.previewChromeWidth, (window.previewMaxHeight - window.previewChromeHeight) * ratio)
+      var w = Math.min(window.previewMaxWidth - window.previewChromeWidth, (window.previewMaxHeight - chromeH) * ratio)
       // Small images are not blown up past twice their size.
       w = Math.min(w, d.width * 2)
-      return { w: Math.max(px(380), Math.round(w + window.previewChromeWidth)), h: Math.round(w / ratio + window.previewChromeHeight) }
+      return { w: Math.max(px(380), Math.round(w + window.previewChromeWidth)), h: Math.round(w / ratio + chromeH) }
     }
+    if (kind === "rich")
+      return { w: Math.min(px(1000), window.previewMaxWidth), h: window.previewMaxHeight }
     if (kind === "text" || kind === "markdown" || kind === "dir")
       return { w: Math.min(px(900), window.previewMaxWidth), h: window.previewMaxHeight }
-    return { w: Math.min(px(560), window.previewMaxWidth), h: window.cardMaxHeight }
+    return { w: Math.min(px(560), window.previewMaxWidth), h: window.cardMaxHeight + caption }
   }
 
   PreviewPane {

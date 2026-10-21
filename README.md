@@ -19,7 +19,9 @@ your scripts and plugins, ranked by what you actually use.
   (`clip text`), music controls, and a dictionary (`define word`,
   `spell word`).
 - **Quick Look.** Tap `Shift` (or `Ctrl+Y`) to preview the selected file:
-  images, PDFs, videos, text and Markdown, folders, clipboard entries.
+  images, PDF pages, videos (contact sheet), audio, office documents and
+  slides, spreadsheets, archives, code with syntax colours, 3D models (with
+  `f3d`), fonts, EPUBs, git repositories, Obsidian notes, clipboard entries.
 - **Search filters.** `pdf facture`, `img`, `doc`, `vid`: file searches tied
   to extensions and folders, editable in `~/.config/omalaunch/file-filters.json`.
 - **More plugins.** Emojis in French or English (`:feu`, `:fire`), snippets
