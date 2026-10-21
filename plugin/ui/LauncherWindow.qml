@@ -180,11 +180,39 @@ PanelWindow {
     Item {
       id: listArea
       anchors { left: parent.left; right: parent.right; top: searchBar.bottom; topMargin: 1; leftMargin: window.borderWidth; rightMargin: window.borderWidth }
-      height: launcher.flat.length ? Math.min(window.listMax, (launcher.gridActive ? grid.contentHeight : list.contentHeight) + window.px(12)) : window.px(90)
+      height: launcher.answer ? Math.min(window.listMax, Math.max(window.px(90), answerText.paintedHeight + window.px(40)))
+        : (launcher.flat.length ? Math.min(window.listMax, (launcher.gridActive ? grid.contentHeight : list.contentHeight) + window.px(12)) : window.px(90))
+
+      // A provider's answer (Claude…) in place of the list.
+      Flickable {
+        id: answerFlick
+        visible: !!launcher.answer
+        anchors { fill: parent; margins: window.px(16); leftMargin: window.px(20); rightMargin: window.px(20) }
+        contentWidth: width
+        contentHeight: answerText.paintedHeight
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+        // Follow the text while it is being written.
+        onContentHeightChanged: if (launcher.answer && launcher.answer.busy && contentHeight > height) contentY = contentHeight - height
+
+        Text {
+          id: answerText
+          width: answerFlick.width
+          text: launcher.answer ? (launcher.answer.text || (launcher.answer.busy ? "…" : "")) : ""
+          textFormat: Text.MarkdownText
+          wrapMode: Text.Wrap
+          color: window.fg
+          linkColor: window.accent
+          font.family: window.font
+          font.pixelSize: window.fontSize
+          lineHeight: 1.2
+          onLinkActivated: function(link) { Qt.openUrlExternally(link) }
+        }
+      }
 
       Text {
         anchors.centerIn: parent
-        visible: launcher.flat.length === 0
+        visible: launcher.flat.length === 0 && !launcher.answer
         text: launcher.query ? "No results" : "Nothing here"
         color: window.muted
         font.family: window.font
@@ -194,7 +222,7 @@ PanelWindow {
       // Grid of thumbnails (Ctrl+G, or automatic for images and emojis).
       GridView {
         id: grid
-        visible: launcher.gridActive
+        visible: launcher.gridActive && !launcher.answer
         anchors { fill: parent; topMargin: window.px(6); bottomMargin: window.px(6); leftMargin: window.px(8); rightMargin: window.px(8) }
         clip: true
         model: launcher.gridActive ? launcher.itemsOnly : []
@@ -221,7 +249,7 @@ PanelWindow {
 
       ListView {
         id: list
-        visible: !launcher.gridActive
+        visible: !launcher.gridActive && !launcher.answer
         anchors { fill: parent; topMargin: window.px(6); bottomMargin: window.px(6); leftMargin: window.px(8); rightMargin: window.px(8) }
         clip: true
         model: launcher.flat
@@ -269,7 +297,7 @@ PanelWindow {
 
       Text {
         anchors { left: parent.left; leftMargin: window.px(16); verticalCenter: parent.verticalCenter; right: hints.left; rightMargin: window.px(12) }
-        text: launcher.toastText || "omalaunch"
+        text: launcher.toastText || (launcher.answer ? (launcher.answer.title || "") + (launcher.answer.busy ? "  —  writing…" : "") : "omalaunch")
         color: launcher.toastText ? window.accent : window.muted
         font.family: window.font
         font.pixelSize: window.detailSize
@@ -280,7 +308,8 @@ PanelWindow {
         id: hints
         anchors { right: parent.right; rightMargin: window.px(16); verticalCenter: parent.verticalCenter }
         spacing: window.px(16)
-        readonly property var primary: launcher.selectedRow ? launcher.actionsFor(launcher.selectedRow)[0] : null
+        readonly property var primary: launcher.answer ? (launcher.answer.actions && launcher.answer.actions.length ? launcher.answer.actions[0] : null)
+          : (launcher.selectedRow ? launcher.actionsFor(launcher.selectedRow)[0] : null)
 
         Text {
           visible: !!hints.primary
@@ -290,14 +319,14 @@ PanelWindow {
           font.pixelSize: window.detailSize
         }
         Text {
-          visible: launcher.previewOpen || launcher.canPreview(launcher.selectedRow)
+          visible: !launcher.answer && (launcher.previewOpen || launcher.canPreview(launcher.selectedRow))
           text: (launcher.previewOpen ? "Close Preview" : "Preview") + "  ⇧"
           color: window.muted
           font.family: window.font
           font.pixelSize: window.detailSize
         }
         Text {
-          text: "Actions  ⌃K"
+          text: launcher.answer ? "Copy  ⌃⇧C    Back  Esc" : "Actions  ⌃K"
           color: window.muted
           font.family: window.font
           font.pixelSize: window.detailSize
@@ -380,6 +409,12 @@ PanelWindow {
       return false
     }
 
+    if (launcher.answer) {
+      if (k === Qt.Key_Return || k === Qt.Key_Enter) { launcher.answerAction(ctrl && shift ? 2 : (ctrl ? 1 : 0)); return true }
+      if (ctrl && shift && k === Qt.Key_C) { launcher.copyText(launcher.answer.text || ""); return true }
+      if (k === Qt.Key_Up || k === Qt.Key_PageUp) { answerFlick.contentY = Math.max(0, answerFlick.contentY - (k === Qt.Key_PageUp ? answerFlick.height : window.px(40))); return true }
+      if (k === Qt.Key_Down || k === Qt.Key_PageDown) { answerFlick.contentY = Math.max(0, Math.min(answerFlick.contentHeight - answerFlick.height, answerFlick.contentY + (k === Qt.Key_PageDown ? answerFlick.height : window.px(40)))); return true }
+    }
     if (k === Qt.Key_Return || k === Qt.Key_Enter) {
       if (row) launcher.runIndex(row, ctrl && shift ? 2 : (ctrl ? 1 : 0))
       return true

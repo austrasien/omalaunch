@@ -44,6 +44,7 @@ Item {
   property var promptRow: null
   property int historyIndex: -1
   property string largeText: ""
+  property var answer: null            // see ProviderHost showAnswer()
   property bool previewOpen: false
   property string viewMode: "auto"     // "auto" | "list" | "grid" (Ctrl+G)
   property bool gridActive: false
@@ -118,6 +119,7 @@ Item {
   function close() {
     if (!root.opened) return
     root.opened = false
+    if (root.answer) closeAnswer()
     root.closedAt = Date.now()
     root.actionPanelOpen = false
     root.promptMode = ""
@@ -153,6 +155,7 @@ Item {
   function setQuery(text) {
     var t = String(text || "")
     if (t === root.query) return
+    if (root.answer) closeAnswer()
     root.query = t
     root.selected = 0
     root.historyIndex = -1
@@ -283,6 +286,7 @@ Item {
 
   function back() {
     if (root.actionPanelOpen) { root.actionPanelOpen = false; window.focusSearch(false); return }
+    if (root.answer) { closeAnswer(); return }
     if (root.previewOpen) { root.previewOpen = false; return }
     if (root.promptMode) { root.promptMode = ""; window.syncSearchText(root.query); return }
     if (root.stack.length) { popView(); return }
@@ -477,6 +481,51 @@ Item {
     window.syncSearchText(root.query)
   }
 
+  // ----------------------------------------------------------- answers
+
+  function showAnswer(providerId, a) {
+    var next = {}
+    for (var k in a) next[k] = a[k]
+    next.provider = providerId
+    root.answer = next
+    root.actionPanelOpen = false
+  }
+
+  function updateAnswer(providerId, patch) {
+    if (!root.answer || root.answer.provider !== providerId) return
+    var next = {}
+    for (var k in root.answer) next[k] = root.answer[k]
+    for (var j in patch) next[j] = patch[j]
+    root.answer = next
+  }
+
+  function copyText(text) {
+    exec.detached(["wl-copy", "--", String(text)])
+    toast("Copied")
+  }
+
+  function closeAnswer() {
+    var a = root.answer
+    root.answer = null
+    var p = a ? host.providerById(a.provider) : null
+    if (p && p.object && typeof p.object.answerClosed === "function") {
+      try { p.object.answerClosed(a) } catch (e) { console.warn("[omalaunch] answerClosed() threw:", e) }
+    }
+  }
+
+  // Enter (0), Ctrl+Enter (1), Ctrl+Shift+Enter (2) on the answer.
+  function answerAction(index) {
+    var a = root.answer
+    if (!a || !a.actions || !a.actions.length) return
+    var act = a.actions[Math.min(index, a.actions.length - 1)]
+    var row = {}
+    for (var k in a) row[k] = a[k]
+    row.id = "answer"
+    var outcome = host.run(row, act.id, { query: root.query })
+    if (outcome.toast) toast(outcome.toast)
+    if (outcome.close) { root.answer = null; hide() }
+  }
+
   // ------------------------------------------------------- quick look
 
   // Whether Quick Look has something to show for a row.
@@ -605,6 +654,14 @@ Item {
     function ping(): string { return root.started ? "ok" : "starting" }
     function query(text: string): string { root.show(JSON.stringify({ query: text })); return "shown" }
     function run(key: string): string { return root.runKey(key) }
+    // Testing: ask the claude plugin directly, then read the answer view.
+    function askClaude(question: string): string {
+      var p = host.providerById("claude")
+      if (!p || typeof p.object.ask !== "function") return "no claude plugin"
+      p.object.ask(question, false)
+      return "asked"
+    }
+    function answerState(): string { return JSON.stringify(root.answer) }
     function grid(): string { root.toggleGrid(); return root.gridActive ? "grid" : "list" }
     function quicklook(): string { root.togglePreview(); return root.previewOpen ? "open" : "closed" }
     function large(text: string): string { root.showLargeType(text); return "ok" }

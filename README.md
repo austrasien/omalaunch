@@ -28,7 +28,8 @@ your scripts and plugins, ranked by what you actually use.
   (`;sig`, with `{date}`, `{clipboard}`, `{input:…}` and more), site searches
   (`gh`, `yt`, `maps`, `wiki`, `deepl`, `amz`…), a world clock and timers
   (`heure tokyo`, `dans 3 jours`, `timer 25 café`), Obsidian notes (`o`,
-  `o+`, `on`) and Claude Code sessions (`cc`).
+  `o+`, `on`), Claude answering right under the search field (`? question`,
+  follow-ups keep the conversation) and Claude Code sessions (`cc`).
 - **Laptop daily.** Browser bookmarks and history (`b …`), quick settings
   (`vol 40`, `lum 70`, `wifi`, `bt`, `sortie`, `dnd`, `batterie`), `kill …`,
   SSH hosts (`ssh …`), your agenda (`agenda`, Enter joins the call) and time

@@ -25,6 +25,15 @@ Item {
   property bool loadingSessions: false
   property var waiting: []
 
+  // The inline answer being written, and the conversation it belongs to:
+  // a new question within 15 minutes continues it (claude --resume).
+  property var job: null
+  property string thread: ""
+  property double threadAt: 0
+  property string answerText: ""
+  readonly property string prompt: "You are answering inside a desktop launcher, under its search field. Be concise and direct; use short Markdown (lists, bold, code). Answer in the language of the question."
+
+
   function start() {
     root.host.capture(["bash", "-lc", "command -v claude"], function(code) { root.available = code === 0 })
   }
@@ -104,7 +113,8 @@ Item {
     var q = questionFrom(text)
     if (!q.text) return []
     if (!q.explicit && !/\?$/.test(q.text) && q.text.split(/\s+/).length < 5) return []
-    var row = { id: "ask", title: "Ask Claude", subtitle: q.text, icon: "󰚩", type: "Claude", question: q.text, copy: q.text }
+    var follow = root.thread && Date.now() - root.threadAt < 15 * 60000
+    var row = { id: "ask", title: "Ask Claude", subtitle: q.text + (follow ? "  ·  continues the last answer" : ""), icon: "󰚩", type: "Claude", question: q.text, copy: q.text }
     reply([row], q.explicit ? "inline" : "bottom")
     return null
   }
@@ -115,9 +125,11 @@ Item {
     if (row.id === "chat") return [{ id: "open", title: "Open Claude" }]
     if (row.id === "sessions") return [{ id: "list", title: "List Sessions" }]
     if (row.session) return [{ id: "resume", title: "Resume in Terminal" }, { id: "folder", title: "Open Project Folder" }, { id: "copy-id", title: "Copy Session ID" }]
+    if (row.id === "answer") return [{ id: "continue", title: "Continue in Claude Code" }, { id: "copy-answer", title: "Copy Answer" }, { id: "new", title: "New Question" }]
     return [
-      { id: "answer", title: "Quick Answer" },
-      { id: "chat", title: "Continue as Conversation" },
+      { id: "answer", title: "Answer Here" },
+      { id: "chat", title: "Ask in Claude Code" },
+      { id: "fresh", title: "Answer Here, New Conversation" },
       { id: "copy-question", title: "Copy Question" }
     ]
   }
@@ -126,6 +138,20 @@ Item {
     if (row.id === "sessions") {
       root.host.setQuery("cc ")
       return { close: false }
+    }
+    if (row.id === "answer") {
+      if (actionId === "copy-answer") {
+        root.host.copy(root.answerText)
+        return { close: false, toast: "Answer copied" }
+      }
+      if (actionId === "new") {
+        root.thread = ""
+        root.host.setQuery("? ")
+        return { close: false }
+      }
+      if (!row.session) return { close: false, toast: "Wait for the answer first" }
+      root.host.exec(["setsid", "uwsm-app", "--", "xdg-terminal-exec", "--dir=" + root.host.home, "-e", "claude", "--resume", row.session])
+      return { close: true }
     }
     if (row.session) {
       if (actionId === "copy-id") {
@@ -145,6 +171,10 @@ Item {
       root.host.terminal("claude", false)
       return { close: true }
     }
+    if (actionId === "answer" || actionId === "fresh") {
+      ask(row.question, actionId === "fresh")
+      return { close: false }
+    }
     if (actionId === "copy-question") {
       root.host.copy(row.question)
       return { close: false, toast: "Question copied" }
@@ -155,5 +185,58 @@ Item {
     }
     root.host.terminal("printf '\\033[1m%s\\033[0m\\n\\n' " + quote(row.question) + "; claude -p " + quote(row.question), true)
     return { close: true }
+  }
+
+  // ------------------------------------------------------ inline answers
+
+  function stop() {
+    if (root.job) { root.job.cancel(); root.job = null }
+  }
+
+  function answerClosed() { stop() }
+
+  function answerActions() {
+    return [{ id: "continue", title: "Continue in Claude Code" }, { id: "copy-answer", title: "Copy Answer" }, { id: "new", title: "New Question" }]
+  }
+
+  function ask(question, fresh) {
+    stop()
+    var follow = !fresh && root.thread && Date.now() - root.threadAt < 15 * 60000
+    var args = ["-p", question, "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--append-system-prompt", root.prompt]
+    if (follow) args = args.concat(["--resume", root.thread])
+    root.answerText = ""
+    var session = follow ? root.thread : ""
+    var status = ""
+    var show = function(busy) {
+      var body = root.answerText || (status ? "_" + status + "_" : "")
+      root.host.updateAnswer({ text: body, busy: busy, session: session })
+    }
+    root.host.showAnswer({ title: "Claude" + (follow ? " · same conversation" : ""), question: question, text: "", busy: true, session: session, actions: answerActions() })
+    root.job = root.host.stream(["bash", "-c", 'cd "$HOME" && exec claude "$@"', "bash"].concat(args), function(line) {
+      var ev
+      try { ev = JSON.parse(line) } catch (e) { return }
+      if (ev.session_id) session = ev.session_id
+      if (ev.type === "stream_event" && ev.event) {
+        var e = ev.event
+        if (e.type === "content_block_delta" && e.delta && e.delta.type === "text_delta") {
+          root.answerText += e.delta.text
+          status = ""
+          show(true)
+        } else if (e.type === "content_block_start" && e.content_block && e.content_block.type === "tool_use") {
+          status = "Using " + e.content_block.name + "…"
+          if (root.answerText && !/\n$/.test(root.answerText)) root.answerText += "\n\n"
+          show(true)
+        }
+      } else if (ev.type === "result") {
+        if (ev.is_error && !root.answerText) root.answerText = "**Error:** " + (ev.result || ev.subtype || "unknown")
+        else if (!root.answerText && ev.result) root.answerText = String(ev.result)
+      }
+    }, function(code, err) {
+      root.job = null
+      if (code !== 0 && !root.answerText) root.answerText = "**Claude failed** (exit " + code + ")" + (err ? "\n\n```\n" + String(err).trim().split("\n").slice(-6).join("\n") + "\n```" : "")
+      if (session) { root.thread = session; root.threadAt = Date.now() }
+      status = ""
+      show(false)
+    })
   }
 }

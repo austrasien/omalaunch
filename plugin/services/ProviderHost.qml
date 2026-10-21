@@ -271,6 +271,15 @@ Item {
       function exec(argv) { root.exec.detached(argv) }
       function shell(command) { root.exec.shell(command) }
       function capture(argv, callback, timeoutMs) { return root.exec.capture(argv, callback, timeoutMs) }
+      // Each stdout line as it comes; returns { cancel() }.
+      function stream(argv, onLine, onDone) { return root.exec.stream(argv, onLine, onDone) }
+      // An answer shown under the search field in place of the list:
+      // { title, text (Markdown), busy, actions: [{ id, title }], ...data }.
+      // Enter / Ctrl+Enter / Ctrl+Shift+Enter run its actions through the
+      // provider's run({ provider, id: "answer", ...answer }, actionId);
+      // Esc closes it and calls the provider's answerClosed(), if any.
+      function showAnswer(answer) { root.launcher.showAnswer(providerId, answer) }
+      function updateAnswer(patch) { root.launcher.updateAnswer(providerId, patch) }
       function copy(text) { root.exec.detached(["wl-copy", "--", String(text)]) }
       function browse(url) { root.exec.detached(["omarchy-launch-browser", String(url)]) }
       function notify(title, body) { root.exec.detached(["notify-send", "-a", "omalaunch", String(title), String(body || "")]) }

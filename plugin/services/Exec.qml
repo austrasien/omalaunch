@@ -24,6 +24,60 @@ Item {
     return proc
   }
 
+  // Run argv and hand each stdout line to onLine(line) as it arrives, then
+  // onDone(code, stderr). Returns an object with cancel().
+  function stream(argv, onLine, onDone) {
+    var proc = streamer.createObject(root, { argv: argv, onLine: onLine || null, onDone: onDone || null })
+    proc.start()
+    return proc
+  }
+
+  Component {
+    id: streamer
+
+    Process {
+      id: sp
+      property var argv: []
+      property var onLine: null
+      property var onDone: null
+      property bool finished: false
+
+      function start() {
+        command = argv
+        running = true
+      }
+
+      function cancel() {
+        onLine = null
+        onDone = null
+        if (running) running = false
+      }
+
+      stdout: SplitParser {
+        onRead: function(line) {
+          if (sp.onLine) {
+            try { sp.onLine(line) } catch (e) { console.warn("[omalaunch] stream line callback threw:", e) }
+          }
+        }
+      }
+      stderr: StdioCollector { id: serr }
+
+      onExited: function(exitCode) {
+        if (sp.finished) return
+        sp.finished = true
+        var cb = sp.onDone
+        sp.onDone = null
+        // Let the last stdout lines through before reporting the end.
+        Qt.callLater(function() {
+          if (cb) {
+            try { cb(exitCode, serr.text) } catch (e) { console.warn("[omalaunch] stream done callback threw:", e) }
+          }
+          sp.destroy()
+        })
+      }
+    }
+  }
+
   Component {
     id: runner
 

@@ -100,6 +100,9 @@ Any other fields are kept and handed back to `actions()` and `run()`.
 | `host.terminal(cmd, hold)` | Run `cmd` in a floating terminal; `hold` waits for a key at the end. |
 | `host.toast(text)` | Message in the launcher footer. |
 | `host.ask(label, cb(text), initial)` | Ask for a line of text in the search field; `cb` runs on Enter. |
+| `host.stream(argv, onLine(line), onDone(code, stderr))` | Run and get stdout line by line; returns `{ cancel() }`. |
+| `host.showAnswer({ title, text, busy, actions, … })` | Show Markdown under the search field in place of the list; Enter / Ctrl+Enter / Ctrl+Shift+Enter run `actions` through your `run({ id: "answer", … }, actionId)`; Esc closes it and calls your `answerClosed()`. |
+| `host.updateAnswer(patch)` | Change fields of the answer shown (e.g. the text as it streams in). |
 | `host.close()` | Hide the launcher. |
 | `host.setQuery(text)` | Replace the search text. |
 | `host.changed()` | Tell omalaunch that `items` changed. |
