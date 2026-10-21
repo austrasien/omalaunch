@@ -3,7 +3,8 @@ import "Agenda.js" as Agenda
 
 // Upcoming events from the calendars in ~/.config/omalaunch/calendars.json
 // ([{ "name", "url" }]; for Google Calendar, the "secret address in iCal
-// format" from the calendar's settings). "agenda" lists the next 14 days,
+// format" from the calendar's settings), else from the NextEvent bar
+// widget's feeds. "agenda" lists the next 14 days,
 // "agenda demain" one day, "agenda client" filters; Enter joins the
 // meeting link (Meet, Zoom, Teams…) or opens Google Calendar on that day.
 Item {
@@ -17,6 +18,9 @@ Item {
   property int order: 9
   property var events: []
   property var errors: []
+  property var calendars: []
+  property string source: ""
+  property string calendarBase: ""
   property double loadedAt: 0
   property bool loading: false
   property var waiting: []
@@ -40,6 +44,9 @@ Item {
         var d = JSON.parse(out)
         root.events = Array.isArray(d) ? d : (d.events || [])
         root.errors = d.errors || []
+        root.calendars = d.calendars || []
+        root.source = d.source || ""
+        root.calendarBase = d.calendarBase || ""
       } catch (e) { root.events = [] }
       root.loadedAt = Date.now()
       publish()
@@ -70,7 +77,7 @@ Item {
     var now = new Date()
     var rows = [
       { id: "add", title: "Add Calendar", subtitle: "Paste a calendar's secret iCal address (.ics)", icon: "", type: "Command", keywords: ["agenda", "calendar", "google calendar", "ics"] },
-      { id: "edit", title: "Edit Calendars", subtitle: "~/.config/omalaunch/calendars.json", icon: "", type: "Command", keywords: ["agenda", "calendar", "settings"] }
+      { id: "edit", title: "Edit Calendars", subtitle: root.source === "NextEvent" ? "Using NextEvent's calendars (" + root.calendars.join(", ") + "); a calendars.json replaces them" : "~/.config/omalaunch/calendars.json", icon: "", type: "Command", keywords: ["agenda", "calendar", "settings"] }
     ]
     var n = Agenda.next(root.events, now)
     if (n) {
@@ -156,7 +163,8 @@ Item {
       return { close: true }
     }
     var s = new Date(e.start)
-    root.host.browse("https://calendar.google.com/calendar/r/day/" + s.getFullYear() + "/" + (s.getMonth() + 1) + "/" + s.getDate())
+    var base = /^https:\/\/calendar\.google\.com\//.test(root.calendarBase) ? root.calendarBase.replace(/\/(r\/?.*)?$/, "") : "https://calendar.google.com/calendar"
+    root.host.browse(base + "/r/day/" + s.getFullYear() + "/" + (s.getMonth() + 1) + "/" + s.getDate())
     return { close: true }
   }
 }

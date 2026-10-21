@@ -2,9 +2,12 @@
 """agenda.py CONFIG CACHE_DIR DAYS — upcoming events from iCalendar feeds.
 
 CONFIG is a JSON list of {"name", "url"} (Google Calendar's "secret address
-in iCal format", or any .ics URL or file path). Feeds are fetched at most
-every 10 minutes and the last good copy is used when offline. Prints a JSON
-list of events from 30 minutes ago to DAYS days ahead, soonest first:
+in iCal format", or any .ics URL or file path). Without it, the feeds of the
+NextEvent bar widget (tobiasz-p.next-event: "icsUrl" in
+~/.config/omarchy/shell.json, "url", "url1,url2" or "label|url") are used.
+Feeds are fetched at most every 10 minutes and the last good copy is used
+when offline. Prints {events, errors, calendars, source, calendarBase};
+events run from 30 minutes ago to DAYS days ahead, soonest first:
 {title, start, end (ISO 8601 with offset), allDay, location, link, calendar}.
 Recurring events (RRULE, EXDATE, moved or cancelled instances) are expanded.
 """
@@ -16,6 +19,7 @@ import re
 import subprocess
 import sys
 import time
+import urllib.parse
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -39,8 +43,11 @@ LINK = re.compile(r"https://(?:meet\.google\.com|[\w.-]*zoom\.us|teams\.microsof
 
 def fetch(url, cache_dir):
     if not re.match(r"^https?://", url):
-        with open(os.path.expanduser(url), encoding="utf-8", errors="replace") as f:
-            return f.read()
+        try:
+            with open(os.path.expanduser(url), encoding="utf-8", errors="replace") as f:
+                return f.read()
+        except OSError:
+            return ""
     path = os.path.join(cache_dir, hashlib.sha1(url.encode()).hexdigest()[:20] + ".ics")
     fresh = os.path.exists(path) and time.time() - os.path.getmtime(path) < 600
     if not fresh:
@@ -178,14 +185,67 @@ def expand(evs, start, end):
     return result
 
 
+def calendar_name(url):
+    """A readable name from a Google Calendar feed URL (its calendar id)."""
+    m = re.search(r"/calendar/ical/([^/]+)/", url)
+    if not m:
+        return "Calendar"
+    cid = urllib.parse.unquote(m.group(1))
+    return "Google Calendar" if cid.endswith("@group.calendar.google.com") else cid
+
+
+def next_event_feeds():
+    """Feeds configured in the NextEvent widget, as [{name, url}], and its calendar web base."""
+    try:
+        with open(os.path.expanduser("~/.config/omarchy/shell.json"), encoding="utf-8") as f:
+            shell = json.load(f)
+    except (OSError, ValueError):
+        return [], ""
+    found = []
+
+    def walk(o):
+        if isinstance(o, dict):
+            if "next-event" in str(o.get("id", "")) and o.get("icsUrl"):
+                found.append(o)
+            for v in o.values():
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+    walk(shell)
+    if not found:
+        return [], ""
+    w = found[0]
+    raw = w["icsUrl"]
+    parts = raw if isinstance(raw, list) else re.split(r"[,\n]", str(raw))
+    feeds = []
+    for p in parts:
+        p = str(p).strip()
+        if not p:
+            continue
+        # "url", "label|url", "#color|url" or "label|#color|url".
+        fields = [x.strip() for x in p.split("|")]
+        url = next((x for x in fields if re.match(r"^(https?|webcal)://", x)), "")
+        if not url:
+            continue
+        label = next((x for x in fields if x != url and not re.match(r"^#[0-9a-fA-F]{3,8}$", x)), "")
+        if url.startswith("webcal://"):
+            url = "https://" + url[len("webcal://"):]
+        feeds.append({"name": label or calendar_name(url), "url": url})
+    return feeds, str(w.get("calendarUrlBase") or "")
+
+
 def main():
     config, cache_dir, days = sys.argv[1], sys.argv[2], int(sys.argv[3] if len(sys.argv) > 3 else 14)
+    calendars, base, source = [], "", "calendars.json"
     try:
         with open(config, encoding="utf-8") as f:
             calendars = json.load(f)
     except (OSError, ValueError):
-        print("[]")
-        return
+        calendars = []
+    if not calendars:
+        calendars, base = next_event_feeds()
+        source = "NextEvent"
     now = datetime.now(LOCAL)
     start, end = now - timedelta(minutes=30), now + timedelta(days=days)
     evs = []
@@ -193,13 +253,17 @@ def main():
     for c in calendars if isinstance(calendars, list) else []:
         if not isinstance(c, dict) or not c.get("url"):
             continue
-        text = fetch(c["url"], cache_dir)
+        try:
+            text = fetch(c["url"], cache_dir)
+        except Exception:
+            text = ""
         if not text:
-            errors.append(c.get("name") or c["url"][:40])
+            errors.append(c.get("name") or "a calendar")
             continue
         evs.extend(expand(events(text, c.get("name") or "Calendar"), start, end))
     evs.sort(key=lambda x: (x["start"], x["title"]))
-    print(json.dumps({"events": evs, "errors": errors}, ensure_ascii=False))
+    names = [c.get("name") or "Calendar" for c in calendars if isinstance(c, dict)]
+    print(json.dumps({"events": evs, "errors": errors, "calendars": names, "source": source, "calendarBase": base}, ensure_ascii=False))
 
 
 if __name__ == "__main__":
