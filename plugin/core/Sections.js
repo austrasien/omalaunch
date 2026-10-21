@@ -61,10 +61,18 @@ function idleView(rows, state, deps) {
 
 // Search view: inline plugin sections, then ranked results, then the rest.
 function searchView(rows, dynamic, query, deps) {
+  // Sections of one placement in order; neighbours with the same title
+  // (several providers adding to "Search the web") become one section.
   var byPlacement = function(p) {
-    return dynamic.filter(function(s) { return (s.placement === "inline") === (p === "inline") })
+    var out = []
+    dynamic.filter(function(s) { return (s.placement === "inline") === (p === "inline") })
       .sort(function(a, b) { return (a.order || 0) - (b.order || 0) })
-      .map(function(s) { return { id: s.id, title: s.title, rows: s.rows || [] } })
+      .forEach(function(s) {
+        var last = out[out.length - 1]
+        if (last && s.title && last.title === s.title) last.rows = last.rows.concat(s.rows || [])
+        else out.push({ id: s.id, title: s.title, rows: (s.rows || []).slice() })
+      })
+    return out
   }
   var candidates = rows.filter(function(r) { return r.visibility !== "idle-only" })
   var results = deps.Rank.rank(candidates, query).slice(0, RESULT_LIMIT).map(function(x) { return x.row })

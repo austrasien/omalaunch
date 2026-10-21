@@ -1,8 +1,8 @@
 import QtQuick
 
 // Ask Claude from the launcher. Typing "? question" (or "ask question")
-// puts the row at the top; a search that ends with "?" or has 5+ words
-// offers it near the web fallbacks. Answers run in a floating terminal with the claude CLI.
+// puts the row at the top; any other search offers it with the web
+// searches at the bottom. Answers run in a floating terminal with the claude CLI.
 // "cc" / "resume" [terms] lists recent Claude Code sessions; Enter resumes
 // one in a terminal in its folder, Quick Look shows how it ended.
 Item {
@@ -115,9 +115,13 @@ Item {
     if (!root.available) return []
     var q = questionFrom(text)
     if (!q.text) return []
-    if (!q.explicit && !/\?$/.test(q.text) && q.text.split(/\s+/).length < 5) return []
+    if (!q.explicit && q.text.length < 2) return []
     var follow = root.thread && Date.now() - root.threadAt < 15 * 60000
     var row = { id: "ask", title: "Ask Claude", subtitle: q.text + (follow ? "  ·  continues the last answer" : ""), icon: "󰚩", type: "Claude", question: q.text, copy: q.text }
+    // Explicit questions get their own section on top; otherwise Claude
+    // joins Google and DuckDuckGo under "Search the web".
+    root.sectionTitle = q.explicit ? "Claude" : "Search the web"
+    root.order = q.explicit ? 500 : 1001
     reply([row], q.explicit ? "inline" : "bottom")
     return null
   }

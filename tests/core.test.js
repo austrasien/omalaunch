@@ -222,3 +222,12 @@ test("boost lifts apps over deep menu entries", () => {
 test("keywords are not fuzzy-matched", () => {
   assert.strictEqual(Rank.rank([{ key: "a", title: "Pinta", keywords: ["edit images and screenshots"] }], "ecran").length, 0)
 })
+
+test("sections: neighbours with the same title merge", () => {
+  const dynamic = [
+    { id: "dyn:claude", title: "Search the web", placement: "bottom", order: 1001, rows: [{ key: "claude:ask", title: "Ask Claude" }] },
+    { id: "dyn:web", title: "Search the web", placement: "bottom", order: 1000, rows: [{ key: "web:google", title: "Search Google" }, { key: "web:ddg", title: "Search DuckDuckGo" }] }
+  ]
+  const secs = Sections.rootSections([], dynamic, "drone", State.empty(), Date.now(), { Rank, State })
+  assert.deepStrictEqual(secs.map((s) => [s.title, s.rows.map((r) => r.key)]), [["Search the web", ["web:google", "web:ddg", "claude:ask"]]])
+})
