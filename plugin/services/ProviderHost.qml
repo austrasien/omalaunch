@@ -37,6 +37,9 @@ Item {
     list.push({ id: id, object: object, builtin: !manifest, manifest: manifest || null })
     root.providers = list
     object.host = apiFor(id)
+    // The catalog is cached per revision; an `items` binding that changes
+    // on its own must still refresh it.
+    if (object.itemsChanged) object.itemsChanged.connect(root.changed)
     if (typeof object.start === "function") {
       try { object.start() } catch (e) { console.warn("[omalaunch] provider " + id + " start() threw:", e) }
     }
@@ -69,14 +72,21 @@ Item {
 
   // ------------------------------------------------------------- catalog
 
+  // Kept until the catalog revision moves.
+  property var catalogCache: null
+  property int catalogCacheRevision: -1
+
   // Every catalog row, keyed "<provider>:<row id>".
   function catalog() {
+    if (root.catalogCacheRevision === root.catalogRevision && root.catalogCache) return root.catalogCache
     var out = []
     for (var i = 0; i < root.providers.length; i++) {
       var p = root.providers[i]
       var items = p.object && p.object.items ? p.object.items : []
       for (var j = 0; j < items.length; j++) out.push(stamp(p.id, items[j]))
     }
+    root.catalogCache = out
+    root.catalogCacheRevision = root.catalogRevision
     return out
   }
 

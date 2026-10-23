@@ -25,6 +25,7 @@ Item {
   property var manifest: null
 
   property bool opened: false
+  property double openedAt: 0
   property bool started: false
   property string query: ""
   property var stack: []               // pushed views: [{ id, title, rows }]
@@ -102,6 +103,7 @@ Item {
   function open(payloadJson) {
     var payload = {}
     try { payload = payloadJson ? JSON.parse(payloadJson) : {} } catch (e) { payload = {} }
+    root.openedAt = Date.now()
     resetView()
     if (typeof payload.query === "string") setQuery(payload.query)
     root.actionPanelOpen = false
@@ -162,6 +164,23 @@ Item {
     scheduleRebuild()
   }
 
+  // Ranking the catalog takes tens of milliseconds in the QML JS engine and
+  // each query-provider reply rebuilds the list, so the ranked rows are kept
+  // until the query, the catalog or the user's state changes.
+  property string resultsKey: ""
+  property var resultsCache: null
+
+  function cachedResults(now) {
+    var q = root.query.trim()
+    if (!q) return null
+    var key = [q, host.catalogRevision, store.revision, root.openedAt].join("\u0000")
+    if (key !== root.resultsKey) {
+      root.resultsCache = Sections.searchResults(host.catalog(), q, store.state, now, root.deps)
+      root.resultsKey = key
+    }
+    return root.resultsCache
+  }
+
   property bool rebuildPending: false
   function scheduleRebuild() {
     if (root.rebuildPending) return
@@ -179,7 +198,7 @@ Item {
       var top = root.stack[root.stack.length - 1]
       secs = Sections.submenuSections(top.rows, root.query, store.state, now, root.deps)
     } else {
-      secs = Sections.rootSections(host.catalog(), host.dynamicList(), root.query, store.state, now, root.deps)
+      secs = Sections.rootSections(host.catalog(), host.dynamicList(), root.query, store.state, now, root.deps, cachedResults(now))
     }
     var flat = Sections.flatten(secs)
     var items = flat.filter(function(f) { return !f.header })

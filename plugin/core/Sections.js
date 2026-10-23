@@ -60,7 +60,7 @@ function idleView(rows, state, deps) {
 }
 
 // Search view: inline plugin sections, then ranked results, then the rest.
-function searchView(rows, dynamic, query, deps) {
+function searchView(results, dynamic) {
   // Sections of one placement in order; neighbours with the same title
   // (several providers adding to "Search the web") become one section.
   var byPlacement = function(p) {
@@ -74,8 +74,6 @@ function searchView(rows, dynamic, query, deps) {
       })
     return out
   }
-  var candidates = rows.filter(function(r) { return r.visibility !== "idle-only" })
-  var results = deps.Rank.rank(candidates, query).slice(0, RESULT_LIMIT).map(function(x) { return x.row })
   return byPlacement("inline")
     .concat([{ id: "results", title: "Results", rows: results }])
     .concat(byPlacement("bottom"))
@@ -85,10 +83,17 @@ function nonEmpty(sections) {
   return sections.filter(function(s) { return s.rows.length > 0 })
 }
 
-function rootSections(catalog, dynamic, query, state, now, deps) {
-  var rows = withState(catalog, state, now, deps)
+function rootSections(catalog, dynamic, query, state, now, deps, results) {
   var q = String(query || "").trim()
-  return nonEmpty(q ? searchView(rows, dynamic || [], q, deps) : idleView(rows, state, deps))
+  if (!q) return nonEmpty(idleView(withState(catalog, state, now, deps), state, deps))
+  return nonEmpty(searchView(results || searchResults(catalog, q, state, now, deps), dynamic || []))
+}
+
+// Ranked catalog rows for a search. The launcher keeps these while only
+// query-provider sections change.
+function searchResults(catalog, query, state, now, deps) {
+  var candidates = withState(catalog, state, now, deps).filter(function(r) { return r.visibility !== "idle-only" })
+  return deps.Rank.rank(candidates, query).slice(0, RESULT_LIMIT).map(function(x) { return x.row })
 }
 
 // A pushed sub-list. Idle: its visible rows in order. Searching: all rows,
@@ -112,5 +117,5 @@ function flatten(sections) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { rootSections: rootSections, submenuSections: submenuSections, flatten: flatten }
+  module.exports = { rootSections: rootSections, searchResults: searchResults, submenuSections: submenuSections, flatten: flatten }
 }

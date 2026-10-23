@@ -9,23 +9,65 @@
 var FAVORITE_BONUS = 0.5
 var FRECENCY_WEIGHT = 40
 
+// The same titles and keywords are ranked on every keystroke, and the QML
+// JS engine is slow at Unicode normalization and regexes, so the derived
+// forms of each text are kept. The catalog is a few thousand texts at most;
+// the caches start over if they grow past that.
+var CACHE_LIMIT = 20000
+var cacheSize = 0
+var caches = freshCaches()
+
+// Prototype-free, so texts like "constructor" are ordinary keys.
+function freshCaches() {
+  return { norm: Object.create(null), words: Object.create(null), initials: Object.create(null), starts: Object.create(null) }
+}
+
+function cached(kind, text, compute) {
+  var v = caches[kind][text]
+  if (v !== undefined) return v
+  if (++cacheSize > CACHE_LIMIT) {
+    caches = freshCaches()
+    cacheSize = 1
+  }
+  v = compute(text)
+  caches[kind][text] = v
+  return v
+}
+
 // Lower-case, strip accents, collapse whitespace.
 function normalize(text) {
-  var s = String(text || "").toLowerCase()
-  if (s.normalize) s = s.normalize("NFD").replace(/[̀-ͯ]/g, "")
-  return s.replace(/\s+/g, " ").trim()
+  return cached("norm", String(text || ""), function(raw) {
+    var s = raw.toLowerCase()
+    if (s.normalize) s = s.normalize("NFD").replace(/[̀-ͯ]/g, "")
+    return s.replace(/\s+/g, " ").trim()
+  })
 }
 
 // Words of a title, splitting camelCase, digits and punctuation.
 function words(text) {
-  var spaced = String(text || "")
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .replace(/([A-Za-z])([0-9])/g, "$1 $2")
-  return normalize(spaced).split(/[^a-z0-9]+/).filter(function(w) { return w.length > 0 })
+  return cached("words", String(text || ""), function(raw) {
+    var spaced = raw
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/([A-Za-z])([0-9])/g, "$1 $2")
+    return normalize(spaced).split(/[^a-z0-9]+/).filter(function(w) { return w.length > 0 })
+  })
 }
 
 function initials(text) {
-  return words(text).map(function(w) { return w.charAt(0) }).join("")
+  return cached("initials", String(text || ""), function(raw) {
+    return words(raw).map(function(w) { return w.charAt(0) }).join("")
+  })
+}
+
+// Positions in a normalized text where a word starts.
+function wordStarts(t) {
+  return cached("starts", t, function(t) {
+    var starts = {}
+    for (var i = 0; i < t.length; i++) {
+      if (i === 0 || !/[a-z0-9]/.test(t.charAt(i - 1))) starts[i] = true
+    }
+    return starts
+  })
 }
 
 // Fuzzy subsequence score in [0, 1], or -1 when q is not a subsequence of
@@ -34,10 +76,7 @@ function initials(text) {
 function fuzzy(q, text) {
   if (!q) return 0
   var t = text
-  var starts = {}
-  for (var i = 0; i < t.length; i++) {
-    if (i === 0 || !/[a-z0-9]/.test(t.charAt(i - 1))) starts[i] = true
-  }
+  var starts = wordStarts(t)
   var pos = -1
   var good = 0
   var span = 0

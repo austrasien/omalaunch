@@ -231,3 +231,9 @@ test("sections: neighbours with the same title merge", () => {
   const secs = Sections.rootSections([], dynamic, "drone", State.empty(), Date.now(), { Rank, State })
   assert.deepStrictEqual(secs.map((s) => [s.title, s.rows.map((r) => r.key)]), [["Search the web", ["web:google", "web:ddg", "claude:ask"]]])
 })
+
+test("rank handles titles that name Object.prototype members", () => {
+  const rows = [{ key: "a", title: "constructor" }, { key: "b", title: "toString" }]
+  assert.deepStrictEqual(titles(Rank.rank(rows, "con")), ["constructor"])
+  assert.deepStrictEqual(titles(Rank.rank(rows, "tostring")), ["toString"])
+})
