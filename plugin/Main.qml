@@ -18,7 +18,6 @@ Item {
   id: root
 
   readonly property string pluginId: "austraz.omalaunch"
-  readonly property int keepStateMs: 90000
 
   // Injected by the shell's panel loader.
   property string omarchyPath: Quickshell.env("OMARCHY_PATH")
@@ -27,7 +26,6 @@ Item {
 
   property bool opened: false
   property bool started: false
-  property double closedAt: 0
   property string query: ""
   property var stack: []               // pushed views: [{ id, title, rows }]
   property var sections: []
@@ -104,7 +102,7 @@ Item {
   function open(payloadJson) {
     var payload = {}
     try { payload = payloadJson ? JSON.parse(payloadJson) : {} } catch (e) { payload = {} }
-    if (Date.now() - root.closedAt > root.keepStateMs) resetView()
+    resetView()
     if (typeof payload.query === "string") setQuery(payload.query)
     root.actionPanelOpen = false
     root.promptMode = ""
@@ -120,7 +118,6 @@ Item {
     if (!root.opened) return
     root.opened = false
     if (root.answer) closeAnswer()
-    root.closedAt = Date.now()
     root.actionPanelOpen = false
     root.promptMode = ""
     root.previewOpen = false
@@ -146,6 +143,7 @@ Item {
     root.viewMode = "auto"
     root.stack = []
     root.query = ""
+    window.syncSearchText("")
     host.query("")
     root.selected = 0
   }
