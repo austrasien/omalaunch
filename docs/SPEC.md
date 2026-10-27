@@ -53,7 +53,7 @@ the repo's `plugins/` are installed there by `omalaunch install`:
 | `emojis` | `:name` in French or English (Unicode CLDR names); Enter pastes, a bare `:` lists the last used. |
 | `snippets` | `;name` pastes `~/.config/omalaunch/snippets/name.*` with variables filled in (README); `{input:…}` asks in the launcher; `{shell:…}` runs only in executable snippet files; the text clipboard is restored after pasting. |
 | `web-keywords` | `<keyword> terms` opens a site search; defaults in `Keywords.js`, overrides in `~/.config/omalaunch/web.json` (`null` removes a default). |
-| `url` | A typed or pasted URL (scheme, `www.`, IP, `localhost`, or `name.tld` with a path or a common TLD) comes first: Enter opens it in the default browser (`omarchy-launch-browser`); actions: private window, copy. |
+| `url` | A typed or pasted URL (scheme, `www.`, IP, `localhost`, or `name.tld` with a path or a common TLD) comes first with the default browser's name and icon (`browser.sh`, which follows an icon-less router such as open-in-webapps to the real browser): Enter opens it (`omarchy-launch-browser`); actions: private window, copy. |
 | `clock` | `heure tokyo`, `15h paris en tokyo`, `1000 UTC+2 to BST` (cities, `UTC±h[:mm]`, `+hhmm` and abbreviations such as BST, CET, EST, PST, JST), `maintenant en pst`, `dans 3 jours`, `jusqu'au 25/12`, `timer 25 café` (an Omarchy reminder). |
 | `browser` | Bookmarks of the most recently used Chromium-family profile as searchable rows; `b term` over bookmarks and history (read in place, sqlite immutable). |
 | `quick-settings` | `vol 40` / `vol +10` / `vol mute`, `lum 70`, `wifi [on/off/name]`, `bt [on/off/device]`, `sortie` (audio output), `dnd`, `batterie`. |

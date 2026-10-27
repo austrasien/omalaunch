@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import "Url.js" as Url
 
 // A typed or pasted URL comes first: Enter opens it in the default browser.
@@ -12,11 +13,24 @@ Item {
   property string placement: "inline"
   property int order: -10
   property var items: []
+  property string browserName: "Default browser"
+  property string browserIcon: ""
+
+  function start() { resolveBrowser() }
+  function opened() { resolveBrowser() }
+
+  function resolveBrowser() {
+    root.host.capture([root.pluginDir + "/browser.sh"], function(code, out) {
+      var f = code === 0 ? String(out).trim().split("\t") : []
+      root.browserName = f[0] || "Default browser"
+      root.browserIcon = f[1] ? (f[1].charAt(0) === "/" ? "file://" + f[1] : Quickshell.iconPath(f[1], true)) : ""
+    })
+  }
 
   function query(text) {
     var url = Url.parse(text)
     if (!url) return []
-    return [{ id: "open", title: "Open " + url, subtitle: "Default browser", icon: "", type: "URL", url: url, copy: url }]
+    return [{ id: "open", title: "Open " + url, subtitle: root.browserName, icon: "\uf0ac", iconSource: root.browserIcon, type: "URL", url: url, copy: url }]
   }
 
   function actions(row) {
