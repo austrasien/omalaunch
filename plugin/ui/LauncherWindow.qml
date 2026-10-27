@@ -241,6 +241,7 @@ PanelWindow {
           theme: window
           launcher: window.launcher
           row: modelData.row
+          ordinal: index
           selected: index === launcher.selected
           onClicked: { launcher.selected = index; launcher.runIndex(modelData.row, 0) }
           onHovered: if (pointerGate.moved) launcher.selected = index
@@ -454,6 +455,7 @@ PanelWindow {
     if (k === Qt.Key_PageUp) { launcher.move(-8); return true }
 
     if (ctrl && !shift && k >= Qt.Key_1 && k <= Qt.Key_9) { launcher.runOrdinal(k - Qt.Key_1); return true }
+    if (alt && !ctrl && !shift && k >= Qt.Key_0 && k <= Qt.Key_9) { launcher.runOrdinal(k - Qt.Key_0); return true }
 
     if (ctrl && shift && k === Qt.Key_F) { if (row) launcher.runAction(row, { id: "omalaunch.favorite" }); return true }
     if (ctrl && shift && k === Qt.Key_C) { if (row) launcher.runAction(row, { id: "omalaunch.copy" }); return true }

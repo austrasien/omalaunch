@@ -35,9 +35,36 @@ Item {
     color: root.selected ? theme.selBg : "transparent"
     opacity: root.row && root.row.disabled ? 0.45 : 1
 
+    // Alt+0…9 run the first ten rows.
+    Row {
+      id: quickKey
+      anchors { left: parent.left; leftMargin: theme.px(10); verticalCenter: parent.verticalCenter }
+      width: theme.px(34)
+      spacing: theme.px(3)
+      visible: !root.entry.header && root.entry.ordinal < 10
+
+      Text {
+        anchors.baseline: quickDigit.baseline
+        text: "Alt"
+        color: root.selected ? theme.selFg : theme.muted
+        opacity: 0.55
+        font.family: theme.font
+        font.pixelSize: Math.round(theme.captionSize * 0.85)
+      }
+
+      Text {
+        id: quickDigit
+        text: root.entry.header ? "" : String(root.entry.ordinal)
+        color: root.selected ? theme.selFg : theme.fg
+        font.family: theme.font
+        font.pixelSize: theme.captionSize
+        font.weight: Font.DemiBold
+      }
+    }
+
     Item {
       id: iconBox
-      anchors { left: parent.left; leftMargin: theme.px(10); verticalCenter: parent.verticalCenter }
+      anchors { left: quickKey.right; leftMargin: theme.px(6); verticalCenter: parent.verticalCenter }
       width: theme.px(26)
       height: theme.px(26)
 

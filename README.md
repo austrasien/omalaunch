@@ -65,7 +65,8 @@ omalaunch doctor
 |---|---|
 | `Enter` / `Ctrl+Enter` / `Ctrl+Shift+Enter` | First / second / third action |
 | `Ctrl+K` | All actions for the row |
-| `Ctrl+1`…`9` | Run the n-th row |
+| `Alt+0`…`9` | Run the row numbered 0–9 (shown before the first ten rows) |
+| `Ctrl+1`…`9` | Run the n-th row (1-based) |
 | `↑` / `↓`, `Ctrl+P` / `Ctrl+N` | Move |
 | `Ctrl+↑` / `Ctrl+↓` | Previous / next section |
 | `↑` on an empty search | Previous queries |

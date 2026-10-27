@@ -64,6 +64,28 @@ Item {
       }
     }
 
+    // Alt+0…9 run the first ten tiles.
+    Rectangle {
+      visible: root.ordinal < 10
+      anchors { left: art.left; top: art.top }
+      width: Math.max(height, tileKeyText.implicitWidth + theme.px(8))
+      height: tileKeyText.implicitHeight + theme.px(2)
+      radius: Math.round(theme.px(4))
+      color: theme.bg
+      border.width: 1
+      border.color: theme.muted
+      opacity: 0.85
+
+      Text {
+        id: tileKeyText
+        anchors.centerIn: parent
+        text: root.ordinal
+        color: theme.muted
+        font.family: theme.font
+        font.pixelSize: theme.captionSize
+      }
+    }
+
     Text {
       anchors { left: parent.left; right: parent.right; top: art.bottom; topMargin: theme.px(6); leftMargin: theme.px(6); rightMargin: theme.px(6) }
       text: root.row ? root.row.title : ""

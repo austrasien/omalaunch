@@ -110,7 +110,8 @@ alias. For a query `q` (lower-cased, accents stripped):
 |---|---|
 | `Enter` / `Ctrl+Enter` / `Ctrl+Shift+Enter` | first / second / third action of the selected row |
 | `Ctrl+K` | action panel for the row (filterable) |
-| `Ctrl+1…9` | run the n-th visible row |
+| `Alt+0…9` | run the row or tile numbered 0–9; the first ten show `Alt` (dim) and their number before the icon |
+| `Ctrl+1…9` | run the n-th visible row (1-based) |
 | `↑` / `↓`, `Ctrl+P` / `Ctrl+N` | move |
 | `Ctrl+↑` / `Ctrl+↓` | previous / next section |
 | `↑` in an empty field | walk back through query history (last 50) |
