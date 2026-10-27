@@ -329,7 +329,6 @@ Item {
     if (root.previewOpen) { root.previewOpen = false; return }
     if (root.promptMode) { root.promptMode = ""; window.syncSearchText(root.query); return }
     if (root.stack.length) { popView(); return }
-    if (root.query) { setQuery(""); return }
     hide()
   }
 

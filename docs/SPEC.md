@@ -121,7 +121,7 @@ alias. For a query `q` (lower-cased, accents stripped):
 | `Ctrl+Shift+H` | give the row its own Hyprland key (typed as `SUPER + SHIFT + B`; empty removes it) |
 | `Ctrl+L` | show the row's copy text (else its title) in Large Type; any key closes it |
 | `Shift` (tap) / `Ctrl+Y` | Quick Look: a pane beside the list previews the selected row's file (`previewPath` or `path`, rendered by `plugin/services/preview.sh`): images; PDF pages (up to 8, scrolling) with the page count; videos as a 3 × 2 contact sheet with duration, size and codec; audio with cover or waveform and tags; office documents and slides via LibreOffice; spreadsheets (CSV, TSV, xlsx, ods) as tables; archives as file listings; code and JSON with syntax colours (Pygments); 3D models (STL, OBJ, 3MF, STEP…) rendered with f3d when installed, with their dimensions; fonts as a sample; EPUB covers with title and author; git repositories with branch, changes and README; Obsidian notes with links and embedded images resolved; Markdown, text and folder listings; else file info. Or the row's `previewText`, or the provider's `preview()`. The pane takes the content's proportions within the free screen area (portrait pages fill the height, slides the width), text and folders fill the height, and the card moves left so both stay centred; it follows the selection, `Shift+↑/↓` scrolls it, `Esc` closes it |
-| `Esc` | close the action panel, else leave the submenu, else clear the query, else close |
+| `Esc` | close the action panel, else leave the submenu, else close (the query is kept for the next opening, fully selected) |
 | `Shift+Esc` | back to root |
 | `Ctrl+A/E/B/F/W/U` | emacs-style editing in the field |
 
