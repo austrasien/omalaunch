@@ -35,7 +35,7 @@ Item {
     color: root.selected ? theme.selBg : "transparent"
     opacity: root.row && root.row.disabled ? 0.45 : 1
 
-    // Alt+0…9 run the first ten rows.
+    // Alt+1…9, Alt+0 run the first ten rows, in keyboard order.
     Row {
       id: quickKey
       anchors { left: parent.left; leftMargin: theme.px(10); verticalCenter: parent.verticalCenter }
@@ -54,7 +54,7 @@ Item {
 
       Text {
         id: quickDigit
-        text: root.entry.header ? "" : String(root.entry.ordinal)
+        text: root.entry.header ? "" : String((root.entry.ordinal + 1) % 10)
         color: root.selected ? theme.selFg : theme.fg
         font.family: theme.font
         font.pixelSize: theme.captionSize

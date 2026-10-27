@@ -64,7 +64,7 @@ Item {
       }
     }
 
-    // Alt+0…9 run the first ten tiles.
+    // Alt+1…9, Alt+0 run the first ten tiles, in keyboard order.
     Rectangle {
       visible: root.ordinal < 10
       anchors { left: art.left; top: art.top }
@@ -79,7 +79,7 @@ Item {
       Text {
         id: tileKeyText
         anchors.centerIn: parent
-        text: root.ordinal
+        text: (root.ordinal + 1) % 10
         color: theme.muted
         font.family: theme.font
         font.pixelSize: theme.captionSize
