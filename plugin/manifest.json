@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "austraz.omalaunch",
   "name": "omalaunch",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "author": "austrasien",
   "license": "MIT",
   "description": "Keyboard-first launcher for Omarchy: apps, every Omarchy action, script commands and plugins in one ranked search.",
