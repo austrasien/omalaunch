@@ -160,6 +160,9 @@ writes are atomic renames). Per-row hotkeys: `~/.local/state/omalaunch/hotkeys.t
 `reload` (force Quickshell to reload the QML), `dev` (reload on save),
 `doctor`, `bind` (write `~/.config/hypr/omalaunch.lua` with a key),
 `hotkey set|unset|list` (per-row keys in `~/.config/hypr/omalaunch-hotkeys.lua`,
-checked against existing Hyprland binds), `sync DIR|off`,
+checked against existing Hyprland binds), `scratchpad [KEYS…]|off` (keys in
+`~/.config/hypr/omalaunch-scratchpad.lua` that toggle the scratchpad, open the
+launcher over it when it is empty, and close it again when the launcher is
+dismissed with Esc), `sync DIR|off`,
 `toggle|show|hide`, `run <id>`, `query <text>` (open with text),
 `search <text>` (print the rows a query returns, without opening).

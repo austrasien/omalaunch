@@ -90,6 +90,7 @@ omalaunch search lock           # print what a search returns
 omalaunch plugins               # loaded providers and plugin errors
 omalaunch reload | dev          # reload QML once / on every save
 omalaunch hotkey set "SUPER + B" apps:firefox   # a key for one row; hotkey list | unset
+omalaunch scratchpad "SUPER + grave"            # toggle the scratchpad, launcher over it when empty; Esc closes both; scratchpad off
 omalaunch sync ~/Dropbox/omalaunch              # keep settings in a synced folder; sync off
 ```
 

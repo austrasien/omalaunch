@@ -18,6 +18,7 @@ readonly STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/omalaunch"
 readonly HYPR="$CFG/hypr"
 readonly KEYFILE="$HYPR/omalaunch.lua"
 readonly HOTKEYFILE="$HYPR/omalaunch-hotkeys.lua"
+readonly SCRATCHFILE="$HYPR/omalaunch-scratchpad.lua"
 readonly HOTKEYS="$STATE_DIR/hotkeys.tsv"
 readonly BIN_LINK="$HOME/.local/bin/omalaunch"
 
@@ -175,6 +176,100 @@ do_unbind() {
   note "key binding removed"
 }
 
+# ------------------------------------------------------------ scratchpad
+#
+# omalaunch-scratchpad.lua makes KEYS toggle the scratchpad; opening it empty
+# also opens the launcher, and dismissing the launcher with Escape closes the
+# still-empty scratchpad again. The file replaces any earlier bind on KEYS
+# (Omarchy's own SUPER + S scratchpad toggle).
+
+write_scratchpad() {
+  local combo
+  {
+    printf '%s\n' "-- omalaunch scratchpad keys (managed by \`omalaunch scratchpad\`; rerun it to change the keys)" \
+      'local launcher_open = false' \
+      '-- The launcher was opened over an empty scratchpad by one of the keys.' \
+      'local over_scratchpad = false' \
+      '-- Escape was pressed in the last 500 ms: the launcher was dismissed, not used.' \
+      'local escape_recent = false' \
+      '-- fcitx5 replays a held key when the launcher grabs the keyboard ~120 ms' \
+      '-- after the press; ignoring toggles for 300 ms drops the echo.' \
+      'local cooldown = false' \
+      '' \
+      'local function empty_scratchpad_shown()' \
+      '  local ws = hl.get_active_special_workspace()' \
+      '  return ws ~= nil and ws.name == "special:scratchpad" and ws.windows == 0' \
+      'end' \
+      '' \
+      'local function toggle_scratchpad()' \
+      '  if cooldown then return end' \
+      '  cooldown = true' \
+      '  hl.timer(function() cooldown = false end, { timeout = 300, type = "oneshot" })' \
+      '  hl.dispatch(hl.dsp.workspace.toggle_special("scratchpad"))' \
+      '  if empty_scratchpad_shown() then' \
+      '    if not launcher_open then hl.dispatch(hl.dsp.global("omalaunch:toggle")) end' \
+      '    over_scratchpad = true' \
+      '  end' \
+      'end' \
+      ''
+    for combo in "$@"; do
+      printf 'hl.unbind(%s)\n' "$(lua_string "$combo")"
+      printf 'o.bind(%s, "omalaunch scratchpad", toggle_scratchpad)\n' "$(lua_string "$combo")"
+    done
+    printf '%s\n' '' \
+      '-- Non-consuming: the launcher and apps still get the key.' \
+      'o.bind("Escape", "omalaunch scratchpad: Escape", function()' \
+      '  escape_recent = true' \
+      '  hl.timer(function() escape_recent = false end, { timeout = 500, type = "oneshot" })' \
+      'end, { non_consuming = true })' \
+      '' \
+      'hl.on("layer.opened", function(layer)' \
+      '  if layer.namespace == "omalaunch" then launcher_open = true end' \
+      'end)' \
+      'hl.on("layer.closed", function(layer)' \
+      '  if layer.namespace ~= "omalaunch" then return end' \
+      '  launcher_open = false' \
+      '  if over_scratchpad and escape_recent and empty_scratchpad_shown() then' \
+      '    hl.dispatch(hl.dsp.workspace.toggle_special("scratchpad"))' \
+      '  end' \
+      '  over_scratchpad = false' \
+      'end)'
+  } >"$SCRATCHFILE"
+  if ! grep -q 'require("hypr.omalaunch-scratchpad")' "$HYPR/hyprland.lua"; then
+    printf '\nrequire("hypr.omalaunch-scratchpad") -- omalaunch scratchpad keys\n' >>"$HYPR/hyprland.lua"
+  fi
+}
+
+do_scratchpad() {
+  [[ -f $HYPR/hyprland.lua ]] || fail "this needs a Lua Hyprland config ($HYPR/hyprland.lua)"
+  if [[ ${1:-} == off ]]; then
+    rm -f "$SCRATCHFILE"
+    sed -i '/require("hypr\.omalaunch-scratchpad")/d' "$HYPR/hyprland.lua"
+    hyprctl reload >/dev/null
+    note "scratchpad keys removed"
+    return
+  fi
+  (( $# )) || set -- "SUPER + S"
+  local arg combo sig taken
+  local -a combos=()
+  for arg in "$@"; do
+    combo=$(normal_combo "$arg")
+    sig=$(key_signature "$combo") || fail "could not read a key in \"$arg\""
+    # A scratchpad toggle on the key is replaced; anything else is a clash.
+    taken=$(hyprctl binds -j | jq -r --arg sig "$sig" \
+      '.[] | select(((.modmask|tostring) + " " + (.key|ascii_upcase)) == $sig) | "\(.description // .dispatcher) \(.arg)"' |
+      grep -viE '^(omalaunch scratchpad|toggle scratchpad)( |$)' || true)
+    [[ -z $taken ]] || fail "$combo is already taken by: $taken"
+    combos+=("$combo")
+  done
+  write_scratchpad "${combos[@]}"
+  hyprctl reload >/dev/null
+  local errors
+  errors=$(hyprctl configerrors 2>/dev/null | grep -v '^$' || true)
+  [[ -z $errors ]] || note "hyprland reports: $errors"
+  note "$(IFS=,; echo "${combos[*]}" | sed 's/,/, /g') toggle the scratchpad (with omalaunch when it is empty)"
+}
+
 # ----------------------------------------------------- per-row hotkeys
 #
 # hotkeys.tsv holds "COMBO<TAB>ROW KEY<TAB>TITLE" lines; omalaunch-hotkeys.lua
@@ -330,6 +425,7 @@ do_doctor() {
   errors=$(send errors 2>/dev/null)
   [[ -z $errors || $errors == "[]" ]] && report ok "no plugin errors" || report bad "plugin errors: $errors"
   [[ -f $KEYFILE ]] && report ok "key binding in $KEYFILE" || report tip "no key yet — omalaunch bind"
+  [[ -f $SCRATCHFILE ]] && report ok "scratchpad keys in $SCRATCHFILE"
   printf 'omalaunch %s\n' "$( ((problems)) && echo "— $problems problem(s)" || echo "— all good")"
   printf '%s\n' "${lines[@]}"
   (( problems == 0 ))
@@ -351,6 +447,8 @@ omalaunch — keyboard launcher for Omarchy
   bind [KEYS]              bind KEYS (default "ALT + SPACE"); unbind removes it
   hotkey set KEYS ROW      give one row its own key (also Ctrl+Shift+H in the launcher)
   hotkey unset ROW | list
+  scratchpad [KEYS…]       KEYS (default "SUPER + S") toggle the scratchpad, with the
+                           launcher over it when empty; Esc closes both; off removes them
   sync DIR | off           keep rankings and settings in DIR (synced folder, dotfiles)
   reload | dev             reload the plugin once / on every save
   doctor                   check the setup
@@ -372,6 +470,7 @@ case $cmd in
   bind) do_bind "$*" ;;
   unbind) do_unbind ;;
   hotkey) do_hotkey "$@" ;;
+  scratchpad) do_scratchpad "$@" ;;
   sync) do_sync "$@" ;;
   doctor) do_doctor ;;
   help|-h|--help) do_help ;;
