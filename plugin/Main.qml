@@ -110,8 +110,7 @@ Item {
     root.promptMode = ""
     root.historyIndex = -1
     root.opened = true
-    host.opened()
-    loadHotkeys()
+    refreshTimer.restart()
     scheduleRebuild()
     window.focusSearch(true)
   }
@@ -255,10 +254,30 @@ Item {
   }
   property string lastBuiltQuery: ""
 
+  // Providers refresh only once the open fade (Hyprland layersIn, 0.4 s) is
+  // over: their replies each rebuild the list, and a dozen rebuilds on the
+  // shell's thread during the fade leave Hyprland nothing new to animate.
+  Timer {
+    id: refreshTimer
+    interval: 450
+    onTriggered: if (root.opened) { host.opened(); root.loadHotkeys() }
+  }
+
+  // Provider replies arrive one event-loop turn apart; gather them so they
+  // cost one rebuild instead of one each.
+  Timer {
+    id: replyTimer
+    interval: 50
+    onTriggered: root.scheduleRebuild()
+  }
+  function scheduleReplyRebuild() {
+    if (!replyTimer.running) replyTimer.start()
+  }
+
   Connections {
     target: host
-    function onCatalogRevisionChanged() { root.scheduleRebuild() }
-    function onDynamicRevisionChanged() { root.scheduleRebuild() }
+    function onCatalogRevisionChanged() { root.scheduleReplyRebuild() }
+    function onDynamicRevisionChanged() { root.scheduleReplyRebuild() }
   }
   Connections {
     target: store
