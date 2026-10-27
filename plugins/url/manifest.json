@@ -1,0 +1,9 @@
+{
+  "id": "url",
+  "name": "URL",
+  "version": "1.0.0",
+  "author": "austrasien",
+  "license": "MIT",
+  "description": "A typed or pasted URL opens in the default browser, first in the list.",
+  "entry": "Provider.qml"
+}
