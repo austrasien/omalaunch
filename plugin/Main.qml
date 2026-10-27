@@ -28,6 +28,7 @@ Item {
   property double openedAt: 0
   property bool started: false
   property string query: ""
+  property string lastQuery: ""
   property var stack: []               // pushed views: [{ id, title, rows }]
   property var sections: []
   property var flat: []
@@ -105,7 +106,8 @@ Item {
     try { payload = payloadJson ? JSON.parse(payloadJson) : {} } catch (e) { payload = {} }
     root.openedAt = Date.now()
     resetView()
-    if (typeof payload.query === "string") setQuery(payload.query)
+    // Reopen on the last search, fully selected: typing replaces it.
+    setQuery(typeof payload.query === "string" ? payload.query : root.lastQuery)
     root.actionPanelOpen = false
     root.promptMode = ""
     root.historyIndex = -1
@@ -117,6 +119,7 @@ Item {
 
   function close() {
     if (!root.opened) return
+    root.lastQuery = root.stack.length ? "" : root.query
     root.opened = false
     if (root.answer) closeAnswer()
     root.actionPanelOpen = false
