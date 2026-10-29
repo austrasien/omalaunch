@@ -5,8 +5,9 @@
 //          boost?: number }
 // rank(rows, query) returns [{ row, score }] best first; rows that do not
 // match are dropped. With an empty query every row is kept, ordered by
-// frecency. For a short query, rows the user launched after typing exactly
-// that query come first, most launched first.
+// frecency. For a short query, rows the user launched after typing it come
+// first, most launched first; then rows launched after typing it plus one
+// letter ("c" → "ca"), plus two, and so on up to PICK_MAX_LENGTH.
 
 var FAVORITE_BONUS = 0.5
 var FRECENCY_WEIGHT = 40
@@ -149,15 +150,21 @@ function termBonus(row, q) {
   return bonus
 }
 
-// Launches of the row after typing exactly q.
-function pickCount(row, q) {
+// { extra, count }: the fewest letters typed after q before launching the
+// row (0 = exactly q), and how many launches that was; null if none.
+function pickOf(row, q) {
   var picks = row.picks
-  if (!picks) return 0
-  var n = 0
+  if (!picks) return null
+  var best = null
   for (var k in picks) {
-    if (normalize(k) === q) n += Number(picks[k]) || 0
+    var t = normalize(k)
+    if (t.length > PICK_MAX_LENGTH || t.indexOf(q) !== 0) continue
+    var extra = t.length - q.length
+    var n = Number(picks[k]) || 0
+    if (!best || extra < best.extra) best = { extra: extra, count: n }
+    else if (extra === best.extra) best.count += n
   }
-  return n
+  return best
 }
 
 function frecencyBonus(row) {
@@ -166,7 +173,12 @@ function frecencyBonus(row) {
 }
 
 function compare(a, b) {
-  if (b.picks !== a.picks) return b.picks - a.picks
+  var pa = a.pick, pb = b.pick
+  if (pa || pb) {
+    if (!pa || !pb) return pa ? -1 : 1
+    if (pa.extra !== pb.extra) return pa.extra - pb.extra
+    if (pa.count !== pb.count) return pb.count - pa.count
+  }
   if (b.score !== a.score) return b.score - a.score
   var fa = a.row.favorite ? 1 : 0
   var fb = b.row.favorite ? 1 : 0
@@ -184,19 +196,19 @@ function rank(rows, query) {
   var out = []
   for (var i = 0; i < rows.length; i++) {
     var row = rows[i]
-    var score, picks = 0
+    var score, pick = null
     if (!q) {
       score = frecencyBonus(row) + (row.favorite ? FAVORITE_BONUS : 0)
     } else {
       var m = matchScore(row, q)
       var t = termBonus(row, q)
-      if (q.length <= PICK_MAX_LENGTH) picks = pickCount(row, q)
-      if (m === 0 && t === 0 && picks === 0) continue
+      if (q.length <= PICK_MAX_LENGTH) pick = pickOf(row, q)
+      if (m === 0 && t === 0 && !pick) continue
       // `boost` lets a provider rank its kind of row above or below others
       // at equal match quality (apps above deep menu entries).
       score = m + t + frecencyBonus(row) + (Number(row.boost) || 0)
     }
-    out.push({ row: row, score: score, picks: picks })
+    out.push({ row: row, score: score, pick: pick })
   }
   out.sort(compare)
   return out

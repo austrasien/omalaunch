@@ -97,6 +97,16 @@ test("short queries put the most picked rows first", () => {
     { key: "d", title: "Brave Origin", picks: { ca: 1 } }
   ]
   assert.deepStrictEqual(titles(Rank.rank(rows, "ca")), ["Capture", "Google Calendar", "Brave Origin", "Calculator"])
+  // Then rows picked after a longer query starting with it, shortest first.
+  const more = [
+    { key: "a", title: "Calculator", boost: 120 },
+    { key: "b", title: "Google Calendar", picks: { ca: 1, cal: 4 } },
+    { key: "c", title: "Claude", picks: { c: 1 } },
+    { key: "d", title: "Cabinet", picks: { cab: 9 } },
+    { key: "e", title: "Chat", picks: { ch: 2 } },
+    { key: "f", title: "Cabinets Pro", picks: { cabin: 9 } }
+  ]
+  assert.deepStrictEqual(titles(Rank.rank(more, "c")), ["Claude", "Chat", "Google Calendar", "Cabinet", "Calculator", "Cabinets Pro"])
   // Longer queries keep the ordinary ranking.
   const long = [{ key: "a", title: "Calendar" }, { key: "b", title: "Calendar Sync Tool", picks: { calen: 5 } }]
   assert.strictEqual(Rank.rank(long, "calen")[0].row.title, "Calendar")
