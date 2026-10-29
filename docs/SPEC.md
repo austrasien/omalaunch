@@ -96,7 +96,9 @@ alias. For a query `q` (lower-cased, accents stripped):
 2. Learned terms: when the user launched the row after typing a query, that
    query is remembered for the row (last 50 per row, 30-day expiry). If `q`
    equals a remembered query: +350; if a remembered query starts with `q`:
-   +200.
+   +200. Each remembered query keeps a count of launches after typing it.
+   For a query of at most 4 characters, rows launched after typing exactly
+   that query come before all others, ordered by that count (then by score).
 3. Frecency: each launch adds 1 to a score that halves every 7 days.
    Final score adds `40 · log2(1 + frecency)`.
 4. Kind boost: a provider may add a fixed `boost` to its rows. Applications

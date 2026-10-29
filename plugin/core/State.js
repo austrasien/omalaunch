@@ -11,7 +11,7 @@ function empty() {
   return {
     version: VERSION,
     frecency: {},   // key -> { score, at }
-    terms: {},      // key -> [{ q, at }]
+    terms: {},      // key -> [{ q, at, n }] (n: launches after typing q)
     aliases: {},    // key -> alias
     favorites: [],  // keys, in display order
     disabled: {},   // key -> true
@@ -49,14 +49,25 @@ function recordUse(state, key, query, now) {
   state.frecency[key] = { score: decayed(state.frecency[key], now) + 1, at: now }
   var q = String(query || "").trim().toLowerCase()
   if (q) {
-    var list = (state.terms[key] || []).filter(function(t) { return t.q !== q && now - t.at < TERM_TTL_MS })
-    list.unshift({ q: q, at: now })
+    var n = 1
+    var list = (state.terms[key] || []).filter(function(t) {
+      if (t.q === q && now - t.at < TERM_TTL_MS) n += Number(t.n) || 1
+      return t.q !== q && now - t.at < TERM_TTL_MS
+    })
+    list.unshift({ q: q, at: now, n: n })
     state.terms[key] = list.slice(0, TERMS_PER_ITEM)
   }
 }
 
 function terms(state, key, now) {
   return (state.terms[key] || []).filter(function(t) { return now - t.at < TERM_TTL_MS }).map(function(t) { return t.q })
+}
+
+// query -> how many times the row was launched after typing it.
+function picks(state, key, now) {
+  var out = {}
+  ;(state.terms[key] || []).forEach(function(t) { if (now - t.at < TERM_TTL_MS) out[t.q] = Number(t.n) || 1 })
+  return out
 }
 
 function resetRanking(state, key) {
@@ -108,7 +119,7 @@ function setDisabled(state, key, disabled) {
 
 if (typeof module !== "undefined") {
   module.exports = { empty: empty, upgrade: upgrade, frecency: frecency, recordUse: recordUse,
-    terms: terms, resetRanking: resetRanking, pushHistory: pushHistory, isFavorite: isFavorite,
+    terms: terms, picks: picks, resetRanking: resetRanking, pushHistory: pushHistory, isFavorite: isFavorite,
     toggleFavorite: toggleFavorite, moveFavorite: moveFavorite, setAlias: setAlias,
     setDisabled: setDisabled, HALF_LIFE_MS: HALF_LIFE_MS, TERM_TTL_MS: TERM_TTL_MS }
 }

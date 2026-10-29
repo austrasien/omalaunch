@@ -80,6 +80,28 @@ test("terms are deduped and expire", () => {
   assert.deepStrictEqual(State.terms(s, "k", State.TERM_TTL_MS + 20), [])
 })
 
+test("picks count launches per query", () => {
+  const s = State.empty()
+  State.recordUse(s, "k", "ca", 0)
+  State.recordUse(s, "k", "Ca", 10)
+  State.recordUse(s, "k", "cal", 20)
+  assert.deepStrictEqual(State.picks(s, "k", 30), { cal: 1, ca: 2 })
+  assert.deepStrictEqual(State.picks(s, "k", State.TERM_TTL_MS + 25), {})
+})
+
+test("short queries put the most picked rows first", () => {
+  const rows = [
+    { key: "a", title: "Calculator", boost: 120 },
+    { key: "b", title: "Google Calendar", picks: { ca: 1 } },
+    { key: "c", title: "Capture", picks: { ca: 3 } },
+    { key: "d", title: "Brave Origin", picks: { ca: 1 } }
+  ]
+  assert.deepStrictEqual(titles(Rank.rank(rows, "ca")), ["Capture", "Google Calendar", "Brave Origin", "Calculator"])
+  // Longer queries keep the ordinary ranking.
+  const long = [{ key: "a", title: "Calendar" }, { key: "b", title: "Calendar Sync Tool", picks: { calen: 5 } }]
+  assert.strictEqual(Rank.rank(long, "calen")[0].row.title, "Calendar")
+})
+
 test("favorites toggle and reorder", () => {
   const s = State.empty()
   State.toggleFavorite(s, "a"); State.toggleFavorite(s, "b"); State.toggleFavorite(s, "c")

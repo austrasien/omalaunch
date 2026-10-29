@@ -20,6 +20,7 @@ function withState(rows, state, now, deps) {
     d.favorite = state.favorites.indexOf(r.key) >= 0
     d.frecency = deps.State.frecency(state, r.key, now)
     d.terms = deps.State.terms(state, r.key, now)
+    d.picks = deps.State.picks(state, r.key, now)
     out.push(d)
   })
   return out

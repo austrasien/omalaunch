@@ -1,13 +1,16 @@
 // Ranking for catalog rows (docs/SPEC.md §5).
 //
 // A row: { key, title, subtitle?, keywords?: [string], alias?, favorite?,
-//          frecency?: number, terms?: [string], boost?: number }
+//          frecency?: number, terms?: [string], picks?: { query: count },
+//          boost?: number }
 // rank(rows, query) returns [{ row, score }] best first; rows that do not
 // match are dropped. With an empty query every row is kept, ordered by
-// frecency.
+// frecency. For a short query, rows the user launched after typing exactly
+// that query come first, most launched first.
 
 var FAVORITE_BONUS = 0.5
 var FRECENCY_WEIGHT = 40
+var PICK_MAX_LENGTH = 4
 
 // The same titles and keywords are ranked on every keystroke, and the QML
 // JS engine is slow at Unicode normalization and regexes, so the derived
@@ -146,12 +149,24 @@ function termBonus(row, q) {
   return bonus
 }
 
+// Launches of the row after typing exactly q.
+function pickCount(row, q) {
+  var picks = row.picks
+  if (!picks) return 0
+  var n = 0
+  for (var k in picks) {
+    if (normalize(k) === q) n += Number(picks[k]) || 0
+  }
+  return n
+}
+
 function frecencyBonus(row) {
   var f = Number(row.frecency) || 0
   return f > 0 ? FRECENCY_WEIGHT * Math.log(1 + f) / Math.LN2 : 0
 }
 
 function compare(a, b) {
+  if (b.picks !== a.picks) return b.picks - a.picks
   if (b.score !== a.score) return b.score - a.score
   var fa = a.row.favorite ? 1 : 0
   var fb = b.row.favorite ? 1 : 0
@@ -169,18 +184,19 @@ function rank(rows, query) {
   var out = []
   for (var i = 0; i < rows.length; i++) {
     var row = rows[i]
-    var score
+    var score, picks = 0
     if (!q) {
       score = frecencyBonus(row) + (row.favorite ? FAVORITE_BONUS : 0)
     } else {
       var m = matchScore(row, q)
       var t = termBonus(row, q)
-      if (m === 0 && t === 0) continue
+      if (q.length <= PICK_MAX_LENGTH) picks = pickCount(row, q)
+      if (m === 0 && t === 0 && picks === 0) continue
       // `boost` lets a provider rank its kind of row above or below others
       // at equal match quality (apps above deep menu entries).
       score = m + t + frecencyBonus(row) + (Number(row.boost) || 0)
     }
-    out.push({ row: row, score: score })
+    out.push({ row: row, score: score, picks: picks })
   }
   out.sort(compare)
   return out
