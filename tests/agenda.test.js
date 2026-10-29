@@ -25,3 +25,15 @@ test("agenda: labels and next", () => {
   ]
   assert.strictEqual(A.next(evs, new Date("2026-10-20T10:00:00+02:00")).title, "Point")
 })
+
+test("agenda: spans", () => {
+  const d = (day, h, m) => new Date(2026, 9, day, h, m || 0)
+  assert.strictEqual(A.span(d(29, 11), d(29, 11, 45), false), "11:00–11:45")
+  assert.strictEqual(A.span(d(29, 22), d(30, 0), false), "22:00–00:00")
+  assert.strictEqual(A.span(d(28, 11, 39), d(29, 16, 19), false), "mer. 11:39 → jeu. 16:19")
+  assert.strictEqual(A.span(d(28, 9), d(5 + 31, 18), false), "mer. 28 oct. 09:00 → jeu. 5 nov. 18:00")
+  assert.strictEqual(A.span(d(29, 0), d(30, 0), true), "Toute la journée")
+  assert.strictEqual(A.span(d(29, 0), d(1 + 31, 0), true), "Jusqu'au sam. 31 oct.")
+  assert.strictEqual(A.multiDay(d(29, 22), d(30, 0)), false)
+  assert.strictEqual(A.multiDay(d(28, 11), d(29, 9)), true)
+})

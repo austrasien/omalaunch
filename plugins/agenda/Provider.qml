@@ -58,9 +58,11 @@ Item {
 
   function eventRow(e, now, i) {
     var s = new Date(e.start), f = new Date(e.end)
-    var when = e.allDay ? "Toute la journée" : Agenda.hm(s) + "–" + Agenda.hm(f)
+    var when = Agenda.span(s, f, e.allDay)
     var rel = e.allDay ? "" : Agenda.relative(s, f, now)
-    var bits = [Agenda.dayLabel(s, now)]
+    // A timed event over several days already names its days in "when".
+    var day = !e.allDay && Agenda.multiDay(s, f) ? "" : Agenda.dayLabel(s, now)
+    var bits = day ? [day] : []
     if (rel) bits.push(rel)
     if (e.link) bits.push(/meet\.google/.test(e.link) ? "Meet" : (/zoom/.test(e.link) ? "Zoom" : (/teams/.test(e.link) ? "Teams" : "Visio")))
     else if (e.location) bits.push(e.location)
@@ -68,8 +70,8 @@ Item {
     return {
       id: "ev:" + i + ":" + e.start + ":" + e.title, title: when + "  " + e.title, subtitle: bits.join("  ·  "),
       icon: e.link ? "" : (e.allDay ? "" : ""), type: "Event", event: e,
-      copy: e.title + " — " + Agenda.dayLabel(s, now) + " " + when + (e.link ? " — " + e.link : (e.location ? " — " + e.location : "")),
-      previewText: [e.title, Agenda.dayLabel(s, now) + ", " + when, e.location, e.link, e.calendar].filter(function(x) { return x }).join("\n")
+      copy: e.title + " — " + (day ? day + " " : "") + when + (e.link ? " — " + e.link : (e.location ? " — " + e.location : "")),
+      previewText: [e.title, (day ? day + ", " : "") + when, e.location, e.link, e.calendar].filter(function(x) { return x }).join("\n")
     }
   }
 
