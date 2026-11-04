@@ -26,6 +26,23 @@ Item {
   function opened() {
     var lib = root.host ? root.host.appLibrary : null
     if (lib) lib.refreshIcons()
+    // Rows keep the icon resolved at build time. The shell's icon index is
+    // filled asynchronously (empty right after a shell start, stale after an
+    // icon override), so re-resolve once its rescan has had time to finish.
+    iconRefreshTimer.restart()
+  }
+
+  function refreshIconSources() {
+    var changed = false
+    var rows = root.items.map(function(row) {
+      var src = iconFor(row.iconName)
+      if (src === row.iconSource) return row
+      changed = true
+      return Object.assign({}, row, { iconSource: src })
+    })
+    if (!changed) return
+    root.items = rows
+    if (root.host) root.host.changed()
   }
 
   function scanHidden() {
@@ -74,6 +91,7 @@ Item {
         title: String(e.name || id),
         subtitle: String(e.genericName || ""),
         keywords: keywords,
+        iconName: String(e.icon || ""),
         iconSource: iconFor(e.icon),
         type: "Application",
         group: "apps",
@@ -109,6 +127,7 @@ Item {
   }
 
   Timer { id: rebuildTimer; interval: 300; onTriggered: root.rebuild() }
+  Timer { id: iconRefreshTimer; interval: 1500; onTriggered: root.refreshIconSources() }
 
   FileView {
     id: hidesFile
