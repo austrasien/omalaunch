@@ -14,22 +14,70 @@ Item {
   property var items: []
   property var configuredHides: ({})
   property var desktopHides: ({})
+  property var iconIndex: ({})
+  property bool iconScanRunning: false
 
   readonly property string omarchyPath: root.host ? root.host.omarchyPath : Quickshell.env("OMARCHY_PATH")
 
   function start() {
     hidesFile.path = root.omarchyPath + "/default/omarchy/launcher.hides"
     scanHidden()
+    scanIcons()
     rebuild()
   }
 
   function opened() {
     var lib = root.host ? root.host.appLibrary : null
     if (lib) lib.refreshIcons()
-    // Rows keep the icon resolved at build time. The shell's icon index is
-    // filled asynchronously (empty right after a shell start, stale after an
-    // icon override), so re-resolve once its rescan has had time to finish.
+    scanIcons()
+    // Rows keep the icon resolved at build time; the shell's index fills
+    // asynchronously, so re-resolve once its rescan has had time to finish.
     iconRefreshTimer.restart()
+  }
+
+  // Own icon index, mirroring the shell's AppLibrary: the shell's app library
+  // is often unavailable here (see above), and Qt's themed lookup can pick the
+  // package icon in /usr/share over a user override in ~/.local/share/icons.
+  // Earlier base dirs win; within one, scalable then the size closest to 256.
+  function scanIcons() {
+    if (!root.host || root.iconScanRunning) return
+    root.iconScanRunning = true
+    var cmd = [
+      'dirs="$HOME/.icons ${XDG_DATA_HOME:-$HOME/.local/share}/icons";',
+      'IFS=":"; for d in ${XDG_DATA_DIRS:-/usr/local/share:/usr/share}; do dirs="$dirs $d/icons"; done; unset IFS;',
+      'i=0; for base in $dirs; do i=$((i+1));',
+      '  [[ -d $base ]] && find "$base" \\( -path "*/apps/*" -o -path "*/devices/*" \\) \\( -name "*.svg" -o -name "*.png" \\) -printf "$i\\t%p\\n" 2>/dev/null;',
+      'done;',
+      'find /usr/share/pixmaps -maxdepth 1 \\( -name "*.svg" -o -name "*.png" \\) -printf "999\\t%p\\n" 2>/dev/null'
+    ].join(' ')
+    root.host.capture(["bash", "-c", cmd], function(code, out) {
+      root.iconScanRunning = false
+      var best = ({})
+      String(out || "").split("\n").forEach(function(line) {
+        var tab = line.indexOf("\t")
+        if (tab < 0) return
+        var rank = parseInt(line.slice(0, tab), 10)
+        var path = line.slice(tab + 1)
+        var file = path.slice(path.lastIndexOf("/") + 1)
+        var dot = file.lastIndexOf(".")
+        var name = dot > 0 ? file.slice(0, dot) : file
+        if (!name) return
+        var score = rank * 100000 + root.iconSizeScore(path)
+        var cur = best[name]
+        if (!cur || score < cur.score) best[name] = { score: score, path: path }
+      })
+      var index = ({})
+      for (var n in best) index[n] = best[n].path
+      root.iconIndex = index
+      root.refreshIconSources()
+    })
+  }
+
+  function iconSizeScore(path) {
+    if (path.slice(-4) === ".svg") return 0
+    var m = /\/(\d+)x\d+(@\d+)?\//.exec(path)
+    if (!m) return 5000
+    return 1 + Math.abs(parseInt(m[1], 10) - 256)
   }
 
   function refreshIconSources() {
@@ -68,6 +116,8 @@ Item {
     var v = String(icon || "")
     if (!v) return Quickshell.iconPath("application-x-executable", true)
     if (v.charAt(0) === "/") return "file://" + v
+    var found = root.iconIndex[v]
+    if (found) return "file://" + found
     var themed = Quickshell.iconPath(v, true)
     return themed || Quickshell.iconPath("application-x-executable", true)
   }
