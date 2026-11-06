@@ -168,6 +168,11 @@ writes are atomic renames). Per-row hotkeys: `~/.local/state/omalaunch/hotkeys.t
 checked against existing Hyprland binds), `scratchpad [KEYS…]|off` (keys in
 `~/.config/hypr/omalaunch-scratchpad.lua` that toggle the scratchpad, open the
 launcher over it when it is empty, and close it again when the launcher is
-dismissed with Esc), `sync DIR|off`,
+dismissed with Esc), `workspaces [on|off]` (`~/.config/hypr/omalaunch-workspaces.lua`:
+SUPER + 1…0 switch workspace like Omarchy's own keys and open the launcher when
+the workspace has no window). A launcher opened by one of these keys is hidden
+when another workspace, or no scratchpad, is shown before anything was run; one
+opened by hand, or already open when the key is pressed, stays. Shared logic:
+`~/.config/hypr/omalaunch-auto.lua`. `sync DIR|off`,
 `toggle|show|hide`, `run <id>`, `query <text>` (open with text),
 `search <text>` (print the rows a query returns, without opening).

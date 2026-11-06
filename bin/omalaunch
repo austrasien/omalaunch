@@ -19,6 +19,8 @@ readonly HYPR="$CFG/hypr"
 readonly KEYFILE="$HYPR/omalaunch.lua"
 readonly HOTKEYFILE="$HYPR/omalaunch-hotkeys.lua"
 readonly SCRATCHFILE="$HYPR/omalaunch-scratchpad.lua"
+readonly WORKSPACEFILE="$HYPR/omalaunch-workspaces.lua"
+readonly AUTOFILE="$HYPR/omalaunch-auto.lua"
 readonly HOTKEYS="$STATE_DIR/hotkeys.tsv"
 readonly BIN_LINK="$HOME/.local/bin/omalaunch"
 
@@ -176,25 +178,101 @@ do_unbind() {
   note "key binding removed"
 }
 
+# ------------------------------------------------------------ auto-open
+#
+# omalaunch-auto.lua is shared by the scratchpad and workspace keys. A key
+# opens the launcher over the empty place it shows and remembers that place;
+# once another workspace (or no scratchpad) is shown, a launcher still open
+# from that key is hidden. A launcher opened by hand (Alt+Space) is never
+# hidden, and one already open when the key is pressed counts as opened by hand.
+
+write_auto() {
+  cat >"$AUTOFILE" <<'LUA'
+-- omalaunch auto-open (managed by `omalaunch scratchpad` / `omalaunch workspaces`; do not edit)
+local M = {}
+local launcher_open = false
+-- The place (special workspace name or workspace id) a key opened the
+-- launcher over; nil when the launcher was opened by hand or is closed.
+local home = nil
+local cooldown = false
+
+local function here()
+  local special = hl.get_active_special_workspace()
+  if special then return special.name end
+  local ws = hl.get_active_workspace()
+  return ws and tostring(ws.id) or nil
+end
+
+-- fcitx5 replays a held key when the launcher grabs the keyboard ~120 ms
+-- after the press; ignoring the keys for 300 ms drops the echo.
+function M.debounce()
+  if cooldown then return false end
+  cooldown = true
+  hl.timer(function() cooldown = false end, { timeout = 300, type = "oneshot" })
+  return true
+end
+
+-- Open the launcher over the place now shown, unless it is already open.
+function M.open_here()
+  if launcher_open or home then return end
+  home = here()
+  hl.dispatch(hl.dsp.global("omalaunch:toggle"))
+end
+
+local function hide()
+  home = nil
+  if launcher_open then
+    hl.dispatch(hl.dsp.global("omalaunch:toggle"))
+  else -- opening: the layer is not up yet, hide is idempotent
+    hl.exec_cmd("omarchy-shell omalaunch hide")
+  end
+end
+
+local function check()
+  if home and here() ~= home then hide() end
+end
+hl.on("workspace.active", check)
+hl.on("workspace.special_active", check)
+hl.on("monitor.focused", check)
+
+hl.on("layer.opened", function(layer)
+  if layer.namespace ~= "omalaunch" then return end
+  launcher_open = true
+  check()
+end)
+hl.on("layer.closed", function(layer)
+  if layer.namespace ~= "omalaunch" then return end
+  launcher_open = false
+  home = nil
+end)
+
+return M
+LUA
+}
+
+# Remove the shared file once no key file needs it.
+drop_auto() {
+  [[ -f $SCRATCHFILE || -f $WORKSPACEFILE ]] || rm -f "$AUTOFILE"
+}
+
 # ------------------------------------------------------------ scratchpad
 #
 # omalaunch-scratchpad.lua makes KEYS toggle the scratchpad; opening it empty
-# also opens the launcher, and dismissing the launcher with Escape closes the
-# still-empty scratchpad again. The file replaces any earlier bind on KEYS
-# (Omarchy's own SUPER + S scratchpad toggle).
+# also opens the launcher (hidden again when the scratchpad goes away unused),
+# and dismissing the launcher with Escape closes the still-empty scratchpad
+# again. The file replaces any earlier bind on KEYS (Omarchy's own SUPER + S
+# scratchpad toggle).
 
 write_scratchpad() {
   local combo
+  write_auto
   {
     printf '%s\n' "-- omalaunch scratchpad keys (managed by \`omalaunch scratchpad\`; rerun it to change the keys)" \
-      'local launcher_open = false' \
+      'local auto = require("hypr.omalaunch-auto")' \
       '-- The launcher was opened over an empty scratchpad by one of the keys.' \
       'local over_scratchpad = false' \
       '-- Escape was pressed in the last 500 ms: the launcher was dismissed, not used.' \
       'local escape_recent = false' \
-      '-- fcitx5 replays a held key when the launcher grabs the keyboard ~120 ms' \
-      '-- after the press; ignoring toggles for 300 ms drops the echo.' \
-      'local cooldown = false' \
       '' \
       'local function empty_scratchpad_shown()' \
       '  local ws = hl.get_active_special_workspace()' \
@@ -202,12 +280,10 @@ write_scratchpad() {
       'end' \
       '' \
       'local function toggle_scratchpad()' \
-      '  if cooldown then return end' \
-      '  cooldown = true' \
-      '  hl.timer(function() cooldown = false end, { timeout = 300, type = "oneshot" })' \
+      '  if not auto.debounce() then return end' \
       '  hl.dispatch(hl.dsp.workspace.toggle_special("scratchpad"))' \
       '  if empty_scratchpad_shown() then' \
-      '    if not launcher_open then hl.dispatch(hl.dsp.global("omalaunch:toggle")) end' \
+      '    auto.open_here()' \
       '    over_scratchpad = true' \
       '  end' \
       'end' \
@@ -223,12 +299,8 @@ write_scratchpad() {
       '  hl.timer(function() escape_recent = false end, { timeout = 500, type = "oneshot" })' \
       'end, { non_consuming = true })' \
       '' \
-      'hl.on("layer.opened", function(layer)' \
-      '  if layer.namespace == "omalaunch" then launcher_open = true end' \
-      'end)' \
       'hl.on("layer.closed", function(layer)' \
       '  if layer.namespace ~= "omalaunch" then return end' \
-      '  launcher_open = false' \
       '  if over_scratchpad and escape_recent and empty_scratchpad_shown() then' \
       '    hl.dispatch(hl.dsp.workspace.toggle_special("scratchpad"))' \
       '  end' \
@@ -244,6 +316,7 @@ do_scratchpad() {
   [[ -f $HYPR/hyprland.lua ]] || fail "this needs a Lua Hyprland config ($HYPR/hyprland.lua)"
   if [[ ${1:-} == off ]]; then
     rm -f "$SCRATCHFILE"
+    drop_auto
     sed -i '/require("hypr\.omalaunch-scratchpad")/d' "$HYPR/hyprland.lua"
     hyprctl reload >/dev/null
     note "scratchpad keys removed"
@@ -268,6 +341,60 @@ do_scratchpad() {
   errors=$(hyprctl configerrors 2>/dev/null | grep -v '^$' || true)
   [[ -z $errors ]] || note "hyprland reports: $errors"
   note "$(IFS=,; echo "${combos[*]}" | sed 's/,/, /g') toggle the scratchpad (with omalaunch when it is empty)"
+}
+
+# ------------------------------------------------------------ workspaces
+#
+# omalaunch-workspaces.lua rebinds SUPER + 1…9, 0 (Omarchy's per-monitor
+# workspace switch, same keycodes) so that landing on a workspace with no
+# window opens the launcher, hidden again when another workspace is shown
+# before anything was run.
+
+write_workspaces() {
+  write_auto
+  cat >"$WORKSPACEFILE" <<'LUA'
+-- omalaunch workspace keys (managed by `omalaunch workspaces`; `omalaunch workspaces off` removes them)
+local auto = require("hypr.omalaunch-auto")
+
+for slot = 1, 10 do
+  local key = "SUPER + code:" .. tostring(slot + 9)
+  local focus = o.workspaces.focus(slot)
+  hl.unbind(key)
+  o.bind(key, "Switch to workspace " .. slot .. " (omalaunch when empty)", function()
+    if not auto.debounce() then return end
+    focus()
+    local ws = hl.get_active_workspace()
+    if ws and ws.windows == 0 and not hl.get_active_special_workspace() then
+      auto.open_here()
+    end
+  end)
+end
+LUA
+  if ! grep -q 'require("hypr.omalaunch-workspaces")' "$HYPR/hyprland.lua"; then
+    printf '\nrequire("hypr.omalaunch-workspaces") -- omalaunch workspace keys\n' >>"$HYPR/hyprland.lua"
+  fi
+}
+
+do_workspaces() {
+  [[ -f $HYPR/hyprland.lua ]] || fail "this needs a Lua Hyprland config ($HYPR/hyprland.lua)"
+  case ${1:-on} in
+    on) write_workspaces ;;
+    off)
+      rm -f "$WORKSPACEFILE"
+      drop_auto
+      sed -i '/require("hypr\.omalaunch-workspaces")/d' "$HYPR/hyprland.lua"
+      ;;
+    *) fail "workspaces takes on or off" ;;
+  esac
+  hyprctl reload >/dev/null
+  local errors
+  errors=$(hyprctl configerrors 2>/dev/null | grep -v '^$' || true)
+  [[ -z $errors ]] || note "hyprland reports: $errors"
+  if [[ ${1:-on} == on ]]; then
+    note "SUPER + 1…0 switch workspace, with omalaunch when it is empty"
+  else
+    note "workspace keys removed (Omarchy's own come back after a Hyprland reload)"
+  fi
 }
 
 # ----------------------------------------------------- per-row hotkeys
@@ -426,6 +553,7 @@ do_doctor() {
   [[ -z $errors || $errors == "[]" ]] && report ok "no plugin errors" || report bad "plugin errors: $errors"
   [[ -f $KEYFILE ]] && report ok "key binding in $KEYFILE" || report tip "no key yet — omalaunch bind"
   [[ -f $SCRATCHFILE ]] && report ok "scratchpad keys in $SCRATCHFILE"
+  [[ -f $WORKSPACEFILE ]] && report ok "workspace keys in $WORKSPACEFILE"
   printf 'omalaunch %s\n' "$( ((problems)) && echo "— $problems problem(s)" || echo "— all good")"
   printf '%s\n' "${lines[@]}"
   (( problems == 0 ))
@@ -449,6 +577,8 @@ omalaunch — keyboard launcher for Omarchy
   hotkey unset ROW | list
   scratchpad [KEYS…]       KEYS (default "SUPER + S") toggle the scratchpad, with the
                            launcher over it when empty; Esc closes both; off removes them
+  workspaces [on|off]      SUPER + 1…0 also open the launcher on an empty workspace
+                           (a launcher opened by a key hides when you move away unused)
   sync DIR | off           keep rankings and settings in DIR (synced folder, dotfiles)
   reload | dev             reload the plugin once / on every save
   doctor                   check the setup
@@ -471,6 +601,7 @@ case $cmd in
   unbind) do_unbind ;;
   hotkey) do_hotkey "$@" ;;
   scratchpad) do_scratchpad "$@" ;;
+  workspaces) do_workspaces "$@" ;;
   sync) do_sync "$@" ;;
   doctor) do_doctor ;;
   help|-h|--help) do_help ;;

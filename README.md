@@ -91,6 +91,7 @@ omalaunch plugins               # loaded providers and plugin errors
 omalaunch reload | dev          # reload QML once / on every save
 omalaunch hotkey set "SUPER + B" apps:firefox   # a key for one row; hotkey list | unset
 omalaunch scratchpad "SUPER + grave"            # toggle the scratchpad, launcher over it when empty; Esc closes both; scratchpad off
+omalaunch workspaces                            # SUPER + 1…0 open the launcher on an empty workspace; workspaces off
 omalaunch sync ~/Dropbox/omalaunch              # keep settings in a synced folder; sync off
 ```
 
