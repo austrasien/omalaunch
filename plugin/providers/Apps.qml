@@ -166,8 +166,15 @@ Item {
       return { close: false, toast: "Copied " + row.id }
     }
     var lib = root.host.appLibrary
-    if (lib) lib.launch(row.id, row.title)
-    else root.host.exec(["uwsm-app", "--", "gtk-launch", row.id + ".desktop"])
+    if (lib) {
+      lib.launch(row.id, row.title)
+      // The shell shows "Launching…" for up to 15 s when no new window comes
+      // within 2 s, which is also what relaunching an app that only refocuses
+      // its open window looks like.
+      if (typeof lib.closeLaunchFeedback === "function") lib.closeLaunchFeedback(lib.launchSerial)
+    } else {
+      root.host.exec(["uwsm-app", "--", "gtk-launch", row.id + ".desktop"])
+    }
     return { close: true }
   }
 
