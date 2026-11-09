@@ -133,13 +133,22 @@ Item {
     open(payloadJson || "")
   }
 
+  // Closes at once, also cutting short a closing animation still playing.
   function hide() {
+    window.cutClosing()
     if (root.shell && root.shell.hide(root.pluginId)) { close(); return }
     close()
   }
 
+  // The user sends it away (Escape, the toggle, a click outside): animated.
+  function dismiss() {
+    if (!root.opened) return
+    window.animateClose = true
+    hide()
+  }
+
   function toggle() {
-    if (root.opened) hide()
+    if (root.opened) dismiss()
     else show("")
   }
 
@@ -329,7 +338,7 @@ Item {
     if (root.previewOpen) { root.previewOpen = false; return }
     if (root.promptMode) { root.promptMode = ""; window.syncSearchText(root.query); return }
     if (root.stack.length) { popView(); return }
-    hide()
+    dismiss()
   }
 
   function backToRoot() {
@@ -680,6 +689,14 @@ Item {
     name: "toggle"
     description: "Toggle omalaunch"
     onPressed: root.toggle()
+  }
+
+  // Idempotent and instant, for the workspace keys' auto-hide.
+  GlobalShortcut {
+    appid: "omalaunch"
+    name: "hide"
+    description: "Hide omalaunch"
+    onPressed: root.hide()
   }
 
   IpcHandler {

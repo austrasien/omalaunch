@@ -196,6 +196,9 @@ local launcher_open = false
 local home = nil
 local cooldown = nil
 local cooldown_turn = 0
+-- A place a key wanted the launcher over while the last one was still closing.
+local pending = nil
+local pending_turn = 0
 
 local function here()
   local special = hl.get_active_special_workspace()
@@ -221,18 +224,23 @@ end
 
 -- Open the launcher over the place now shown, unless it is already open.
 function M.open_here()
-  if launcher_open or home then return end
+  if launcher_open or home then
+    -- Maybe only its closing animation: open once it is gone.
+    pending = here()
+    pending_turn = pending_turn + 1
+    local turn = pending_turn
+    hl.timer(function()
+      if pending_turn == turn then pending = nil end
+    end, { timeout = 500, type = "oneshot" })
+    return
+  end
   home = here()
   hl.dispatch(hl.dsp.global("omalaunch:toggle"))
 end
 
 local function hide()
   home = nil
-  if launcher_open then
-    hl.dispatch(hl.dsp.global("omalaunch:toggle"))
-  else -- opening: the layer is not up yet, hide is idempotent
-    hl.exec_cmd("omarchy-shell omalaunch hide")
-  end
+  hl.dispatch(hl.dsp.global("omalaunch:hide"))
 end
 
 local function check()
@@ -251,6 +259,9 @@ hl.on("layer.closed", function(layer)
   if layer.namespace ~= "omalaunch" then return end
   launcher_open = false
   home = nil
+  local place = pending
+  pending = nil
+  if place and place == here() then M.open_here() end
 end)
 
 return M
@@ -278,7 +289,7 @@ write_scratchpad() {
       'local auto = require("hypr.omalaunch-auto")' \
       '-- The launcher was opened over an empty scratchpad by one of the keys.' \
       'local over_scratchpad = false' \
-      '-- Escape was pressed in the last 500 ms: the launcher was dismissed, not used.' \
+      '-- Escape was pressed in the last 900 ms (the closing animation included): the launcher was dismissed, not used.' \
       'local escape_recent = false' \
       '' \
       'local function empty_scratchpad_shown()' \
@@ -303,7 +314,7 @@ write_scratchpad() {
       '-- Non-consuming: the launcher and apps still get the key.' \
       'o.bind("Escape", "omalaunch scratchpad: Escape", function()' \
       '  escape_recent = true' \
-      '  hl.timer(function() escape_recent = false end, { timeout = 500, type = "oneshot" })' \
+      '  hl.timer(function() escape_recent = false end, { timeout = 900, type = "oneshot" })' \
       'end, { non_consuming = true })' \
       '' \
       'hl.on("layer.closed", function(layer)' \

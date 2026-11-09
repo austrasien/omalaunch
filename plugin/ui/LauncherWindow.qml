@@ -47,7 +47,12 @@ PanelWindow {
   readonly property int footerHeight: px(36)
   readonly property int listMax: Math.min(px(430), Math.round(height * 0.6))
 
-  visible: shown
+  // Stays up after `shown` drops while the closing animation plays, without
+  // the keyboard and letting every click through to what is underneath.
+  property bool present: false
+  visible: present
+  mask: shown ? null : clickThrough
+  Region { id: clickThrough }
   anchors { top: true; bottom: true; left: true; right: true }
   color: "transparent"
   exclusionMode: ExclusionMode.Ignore
@@ -75,14 +80,49 @@ PanelWindow {
 
   onShownChanged: {
     if (shown) {
+      closing.stop()
+      squeeze = 0
+      shrink = 0
+      glow = 1
+      reveal = 0
+      present = true
       pointerGate.moved = false
       pointerGate.last = Qt.point(-1, -1)
       focusSearch(true)
-      reveal = 0
       unroll.restart()
     } else {
       unroll.stop()
+      if (animateClose && !Style.reduceMotion) closing.restart()
+      else present = false
     }
+    animateClose = false
+  }
+
+  // Set just before a dismissal (Escape, the toggle, a click outside). Every
+  // other close stays instant: an app being launched, a text being pasted or
+  // a workspace switch should not wait for an animation.
+  property bool animateClose: false
+  // Ends a running closing animation at once.
+  function cutClosing() { closing.stop() }
+
+  // Closing: the drawer is swallowed back under the search field, then the
+  // field goes out like a tube: squeezed to a bright line, the line drawn in
+  // to a dot, the dot fading.
+  property real squeeze: 0
+  property real shrink: 0
+  property real glow: 1
+  readonly property real tubeY: 1 - squeeze * (1 - px(3) / Math.max(1, card.height))
+  readonly property real tubeX: 1 - shrink * (1 - px(6) / Math.max(1, card.width))
+  // The picture loses its tracking while it collapses.
+  readonly property real tear: Math.sin(squeeze * 40) * px(8) * (1 - squeeze * 0.5) * (1 - shrink)
+
+  SequentialAnimation {
+    id: closing
+    onRunningChanged: if (!running && !window.shown) window.present = false
+    NumberAnimation { target: window; property: "reveal"; to: 0; duration: 150; easing.type: Easing.InCubic }
+    NumberAnimation { target: window; property: "squeeze"; to: 1; duration: 80; easing.type: Easing.InQuad }
+    NumberAnimation { target: window; property: "shrink"; to: 1; duration: 100; easing.type: Easing.InCubic }
+    NumberAnimation { target: window; property: "glow"; to: 0; duration: 60 }
   }
 
   // How far the part under the search field is unrolled, 0 to 1. The search
@@ -119,7 +159,7 @@ PanelWindow {
 
   MouseArea {
     anchors.fill: parent
-    onClicked: launcher.hide()
+    onClicked: launcher.dismiss()
   }
 
   Rectangle {
@@ -138,6 +178,11 @@ PanelWindow {
     border.width: window.borderWidth
     radius: Style.cornerRadius
     clip: true
+    opacity: window.glow
+    transform: [
+      Translate { x: window.tear },
+      Scale { origin.x: card.width / 2; origin.y: card.height / 2; xScale: window.tubeX; yScale: window.tubeY }
+    ]
 
     MouseArea { anchors.fill: parent; onClicked: { launcher.actionPanelOpen = false; window.focusSearch(false) } }
 
@@ -422,6 +467,29 @@ PanelWindow {
       border.color: window.border
       border.width: window.borderWidth
       radius: card.radius
+    }
+
+    // The picture burning white as the tube collapses.
+    Rectangle {
+      visible: window.squeeze > 0
+      anchors.fill: parent
+      color: window.bright
+      opacity: window.squeeze
+    }
+  }
+
+  // The glow around the collapsing line.
+  Rectangle {
+    visible: window.squeeze > 0
+    width: card.width * window.tubeX
+    height: window.px(10) + window.px(38) * window.tubeX
+    x: card.x + (card.width - width) / 2 + window.tear
+    y: card.y + (card.height - height) / 2
+    opacity: window.squeeze * window.glow
+    gradient: Gradient {
+      GradientStop { position: 0; color: Qt.alpha(window.accent, 0) }
+      GradientStop { position: 0.5; color: Qt.alpha(window.accent, 0.45) }
+      GradientStop { position: 1; color: Qt.alpha(window.accent, 0) }
     }
   }
 
