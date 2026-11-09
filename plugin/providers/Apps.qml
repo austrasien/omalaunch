@@ -160,10 +160,32 @@ Item {
     ]
   }
 
+  // The command of the entry's "New Window" desktop action, [] without one.
+  function newWindowCommand(entry) {
+    var actions = entry ? entry.actions : null
+    if (!actions) return []
+    for (var i = 0; i < actions.length; i++) {
+      if (!/^new[-_]?window$/i.test(String(actions[i].id))) continue
+      var words = []
+      var command = actions[i].command || []
+      for (var w = 0; w < command.length; w++)
+        if (!/^%[a-zA-Z]$/.test(String(command[w]))) words.push(String(command[w]))
+      return words
+    }
+    return []
+  }
+
   function run(row, actionId) {
     if (actionId === "copy-id") {
       root.host.copy(row.id)
       return { close: false, toast: "Copied " + row.id }
+    }
+    // Apps activated over D-Bus (Files, among others) only refocus their open
+    // window on a plain launch: their own "New Window" action really opens one.
+    var newWindow = newWindowCommand(DesktopEntries.byId(row.id))
+    if (newWindow.length) {
+      root.host.exec(["uwsm-app", "--"].concat(newWindow))
+      return { close: true }
     }
     var lib = root.host.appLibrary
     if (lib) {
