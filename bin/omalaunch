@@ -194,7 +194,8 @@ local launcher_open = false
 -- The place (special workspace name or workspace id) a key opened the
 -- launcher over; nil when the launcher was opened by hand or is closed.
 local home = nil
-local cooldown = false
+local cooldown = nil
+local cooldown_turn = 0
 
 local function here()
   local special = hl.get_active_special_workspace()
@@ -204,11 +205,17 @@ local function here()
 end
 
 -- fcitx5 replays a held key when the launcher grabs the keyboard ~120 ms
--- after the press; ignoring the keys for 300 ms drops the echo.
-function M.debounce()
-  if cooldown then return false end
-  cooldown = true
-  hl.timer(function() cooldown = false end, { timeout = 300, type = "oneshot" })
+-- after the press; ignoring that same key for 300 ms drops the echo, and
+-- leaves another key free, so desks can be switched as fast as one types.
+function M.debounce(key)
+  key = key or "any"
+  if cooldown == key then return false end
+  cooldown = key
+  cooldown_turn = cooldown_turn + 1
+  local turn = cooldown_turn
+  hl.timer(function()
+    if cooldown_turn == turn then cooldown = nil end
+  end, { timeout = 300, type = "oneshot" })
   return true
 end
 
@@ -361,7 +368,7 @@ for slot = 1, 10 do
   local focus = o.workspaces.focus(slot)
   hl.unbind(key)
   o.bind(key, "Switch to workspace " .. slot .. " (omalaunch when empty)", function()
-    if not auto.debounce() then return end
+    if not auto.debounce(slot) then return end
     focus()
     local ws = hl.get_active_workspace()
     if ws and ws.windows == 0 and not hl.get_active_special_workspace() then
