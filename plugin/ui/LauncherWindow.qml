@@ -14,7 +14,12 @@ PanelWindow {
   readonly property real z: launcher.zoom
   function px(v) { return Math.round(v * window.z) }
 
-  readonly property color bg: Color.menu.background
+  // Worn VHS look, the recipe of the day tape's cards: near-black panel, CRT
+  // lines in the accent colour under the content, dark lines over it.
+  readonly property color bg: Qt.darker(Color.background, 1.6)
+  readonly property color bright: Qt.tint(Color.accent, Qt.alpha("#ffffff", 0.45))
+  readonly property real crtStrength: 0.07
+  readonly property real wornStrength: 0.6
   readonly property color fg: Color.menu.text
   // Same frame as the Omarchy menu: theme border colour, Style.space(2) wide
   // unless the theme sets its own width.
@@ -68,7 +73,49 @@ PanelWindow {
     return -1
   }
 
-  onShownChanged: if (shown) { pointerGate.moved = false; pointerGate.last = Qt.point(-1, -1); focusSearch(true) }
+  onShownChanged: {
+    if (shown) {
+      pointerGate.moved = false
+      pointerGate.last = Qt.point(-1, -1)
+      focusSearch(true)
+      reveal = 0
+      unroll.restart()
+    } else {
+      unroll.stop()
+    }
+  }
+
+  // How far the part under the search field is unrolled, 0 to 1. The search
+  // field shows alone first: the pause lets Hyprland's layer fade-in finish,
+  // which would otherwise swallow most of the movement.
+  property real reveal: 1
+  SequentialAnimation {
+    id: unroll
+    PauseAnimation { duration: Style.reduceMotion ? 0 : 120 }
+    NumberAnimation {
+      target: window
+      property: "reveal"
+      to: 1
+      duration: Style.reduceMotion ? 0 : 280
+      easing.type: Easing.OutCubic
+    }
+  }
+
+  // A tile of one horizontal line, repeated over the card.
+  component TapeLines: Image {
+    property int pitch: 3
+    property color ink
+    property real strength
+    // Stays inside the border and the rounded corners.
+    anchors.fill: parent
+    anchors.margins: Math.max(window.borderWidth, Math.ceil(Style.cornerRadius * 0.293))
+    fillMode: Image.Tile
+    verticalAlignment: Image.AlignTop
+    horizontalAlignment: Image.AlignLeft
+    source: "data:image/svg+xml," + encodeURIComponent(
+      "<svg xmlns='http://www.w3.org/2000/svg' width='" + pitch + "' height='" + pitch + "'><rect width='" + pitch
+      + "' height='1' fill='" + ink + "' fill-opacity='" + strength + "'/></svg>")
+  }
 
   MouseArea {
     anchors.fill: parent
@@ -78,7 +125,8 @@ PanelWindow {
   Rectangle {
     id: card
     width: window.cardWidth
-    height: window.searchHeight + listArea.height + window.footerHeight + 2 * window.borderWidth
+    // Follows the list as results arrive, even while unrolling.
+    height: window.searchHeight + 2 * window.borderWidth + Math.round((listArea.height + window.footerHeight) * window.reveal)
     // With Quick Look open, card and preview are centred together.
     x: Math.round((window.width - width - (launcher.previewOpen ? window.previewSize.w + window.previewGap : 0)) / 2)
     Behavior on x { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
@@ -92,6 +140,8 @@ PanelWindow {
     clip: true
 
     MouseArea { anchors.fill: parent; onClicked: { launcher.actionPanelOpen = false; window.focusSearch(false) } }
+
+    TapeLines { pitch: 4; ink: window.accent; strength: window.crtStrength }
 
     // ------------------------------------------------------------ search
     Item {
@@ -292,7 +342,10 @@ PanelWindow {
     // ------------------------------------------------------------ footer
     Rectangle {
       id: footer
-      anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: window.borderWidth }
+      // Under the list rather than on the card's bottom edge, so it stays
+      // hidden until the card has unrolled down to it.
+      anchors { left: parent.left; right: parent.right; leftMargin: window.borderWidth; rightMargin: window.borderWidth }
+      y: window.borderWidth + window.searchHeight + listArea.height
       height: window.footerHeight
       color: Qt.rgba(window.fg.r, window.fg.g, window.fg.b, 0.04)
 
@@ -343,6 +396,32 @@ PanelWindow {
       row: launcher.selectedRow
       anchors { right: parent.right; bottom: footer.top; rightMargin: window.px(10); bottomMargin: window.px(6) }
       onVisibleChanged: if (visible) reset()
+    }
+
+    // Worn tape: dark lines across everything, text included.
+    TapeLines { ink: window.bg; strength: window.wornStrength }
+
+    // The scan line and its trail, on the edge that is unrolling.
+    Rectangle {
+      visible: window.reveal > 0 && window.reveal < 1
+      anchors { left: parent.left; right: parent.right; leftMargin: window.borderWidth; rightMargin: window.borderWidth }
+      y: card.height - window.borderWidth - height
+      height: Math.min(window.px(34), card.height - window.searchHeight - 2 * window.borderWidth)
+      gradient: Gradient {
+        GradientStop { position: 0; color: Qt.alpha(window.accent, 0) }
+        GradientStop { position: 1; color: Qt.alpha(window.accent, 0.4) }
+      }
+      Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 2; color: window.bright }
+    }
+
+    // The frame on top: the clip would otherwise let the list and the footer
+    // cover the bottom border while the card unrolls.
+    Rectangle {
+      anchors.fill: parent
+      color: "transparent"
+      border.color: window.border
+      border.width: window.borderWidth
+      radius: card.radius
     }
   }
 
