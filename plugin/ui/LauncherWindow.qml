@@ -20,6 +20,8 @@ PanelWindow {
   readonly property color bright: Qt.tint(Color.accent, Qt.alpha("#ffffff", 0.45))
   readonly property real crtStrength: 0.07
   readonly property real wornStrength: 0.6
+  // Inside the border and the rounded corners.
+  readonly property int tapeInset: Math.max(borderWidth, Math.ceil(Style.cornerRadius * 0.293))
   readonly property color fg: Color.menu.text
   // Same frame as the Omarchy menu: theme border colour, Style.space(2) wide
   // unless the theme sets its own width.
@@ -139,22 +141,6 @@ PanelWindow {
     }
   }
 
-  // A tile of one horizontal line, repeated over the card.
-  component TapeLines: Image {
-    property int pitch: 3
-    property color ink
-    property real strength
-    // Stays inside the border and the rounded corners.
-    anchors.fill: parent
-    anchors.margins: Math.max(window.borderWidth, Math.ceil(Style.cornerRadius * 0.293))
-    fillMode: Image.Tile
-    verticalAlignment: Image.AlignTop
-    horizontalAlignment: Image.AlignLeft
-    source: "data:image/svg+xml," + encodeURIComponent(
-      "<svg xmlns='http://www.w3.org/2000/svg' width='" + pitch + "' height='" + pitch + "'><rect width='" + pitch
-      + "' height='1' fill='" + ink + "' fill-opacity='" + strength + "'/></svg>")
-  }
-
   MouseArea {
     anchors.fill: parent
     onClicked: launcher.dismiss()
@@ -184,7 +170,7 @@ PanelWindow {
 
     MouseArea { anchors.fill: parent; onClicked: { launcher.actionPanelOpen = false; window.focusSearch(false) } }
 
-    TapeLines { pitch: 4; ink: window.accent; strength: window.crtStrength }
+    TapeLines { pitch: 4; ink: window.accent; strength: window.crtStrength; inset: window.tapeInset }
 
     // ------------------------------------------------------------ search
     Item {
@@ -442,7 +428,7 @@ PanelWindow {
     }
 
     // Worn tape: dark lines across everything, text included.
-    TapeLines { ink: window.bg; strength: window.wornStrength }
+    TapeLines { ink: window.bg; strength: window.wornStrength; inset: window.tapeInset }
 
     // The scan line and its trail, on the edge that is unrolling.
     Rectangle {

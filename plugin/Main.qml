@@ -438,7 +438,10 @@ Item {
       pushView({ id: outcome.push.id, title: outcome.push.title, rows: host.stampAll(row.provider, outcome.push.rows) })
     }
     if (outcome.toast) toast(outcome.toast)
-    if (outcome.close) hide()
+    if (outcome.close) {
+      tube.arm()
+      hide()
+    }
   }
 
   function runOrdinal(n) {
@@ -674,6 +677,12 @@ Item {
       for (var i = 0; i < screens.length; i++) if (screens[i].name === name) return screens[i]
       return screens.length ? screens[0] : null
     }
+  }
+
+  TubeOn {
+    id: tube
+    launcherOpen: root.opened
+    screen: window.screen
   }
 
   LargeType {
