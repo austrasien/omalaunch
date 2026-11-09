@@ -102,8 +102,6 @@ PanelWindow {
   // other close stays instant: an app being launched, a text being pasted or
   // a workspace switch should not wait for an animation.
   property bool animateClose: false
-  // Ends a running closing animation at once.
-  function cutClosing() { closing.stop() }
 
   // Closing: the drawer is swallowed back under the search field, then the
   // field goes out like a tube: squeezed to a bright line, the line drawn in

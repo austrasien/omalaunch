@@ -133,9 +133,9 @@ Item {
     open(payloadJson || "")
   }
 
-  // Closes at once, also cutting short a closing animation still playing.
+  // Closes at once. A closing animation already playing goes on: Hyprland's
+  // focus hooks call this as soon as the focus returns to a window.
   function hide() {
-    window.cutClosing()
     if (root.shell && root.shell.hide(root.pluginId)) { close(); return }
     close()
   }
