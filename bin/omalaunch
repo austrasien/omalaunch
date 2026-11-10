@@ -261,7 +261,8 @@ end
 -- and the launcher was not opened by hand in the meantime.
 function M.open_here()
   waiting_turn = waiting_turn + 1
-  if DELAY_MS <= 0 then return open_now() end
+  -- Animations off (call mode, `omarchy toggle animations`): nothing to wait for.
+  if DELAY_MS <= 0 or hl.get_config("animations.enabled") == false then return open_now() end
   local turn, place = waiting_turn, here()
   hl.timer(function()
     if waiting_turn == turn and here() == place and empty_here() then open_now() end
