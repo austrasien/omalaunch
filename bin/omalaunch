@@ -21,6 +21,7 @@ readonly HOTKEYFILE="$HYPR/omalaunch-hotkeys.lua"
 readonly SCRATCHFILE="$HYPR/omalaunch-scratchpad.lua"
 readonly WORKSPACEFILE="$HYPR/omalaunch-workspaces.lua"
 readonly AUTOFILE="$HYPR/omalaunch-auto.lua"
+readonly AUTO_DELAY="$CFG/omalaunch/auto-delay"
 readonly HOTKEYS="$STATE_DIR/hotkeys.tsv"
 readonly BIN_LINK="$HOME/.local/bin/omalaunch"
 
@@ -185,10 +186,20 @@ do_unbind() {
 # once another workspace (or no scratchpad) is shown, a launcher still open
 # from that key is hidden. A launcher opened by hand (Alt+Space) is never
 # hidden, and one already open when the key is pressed counts as opened by hand.
+# `omalaunch delay MS` makes the key wait before opening, to let an animation
+# of the workspace change play out (0 by default).
+
+auto_delay() {
+  local ms
+  ms=$(cat "$AUTO_DELAY" 2>/dev/null) || ms=0
+  [[ $ms =~ ^[0-9]+$ ]] || ms=0
+  printf '%s' "$ms"
+}
 
 write_auto() {
-  cat >"$AUTOFILE" <<'LUA'
--- omalaunch auto-open (managed by `omalaunch scratchpad` / `omalaunch workspaces`; do not edit)
+  { printf -- '-- omalaunch auto-open (managed by `omalaunch scratchpad` / `omalaunch workspaces`; do not edit)\n'
+    printf 'local DELAY_MS = %s -- `omalaunch delay MS`\n' "$(auto_delay)"
+    cat <<'LUA'
 local M = {}
 local launcher_open = false
 -- The place (special workspace name or workspace id) a key opened the
@@ -222,8 +233,15 @@ function M.debounce(key)
   return true
 end
 
--- Open the launcher over the place now shown, unless it is already open.
-function M.open_here()
+-- Bumped to drop an opening still waiting for DELAY_MS.
+local waiting_turn = 0
+
+local function empty_here()
+  local ws = hl.get_active_special_workspace() or hl.get_active_workspace()
+  return ws ~= nil and ws.windows == 0
+end
+
+local function open_now()
   if launcher_open or home then
     -- Maybe only its closing animation: open once it is gone.
     pending = here()
@@ -236,6 +254,18 @@ function M.open_here()
   end
   home = here()
   hl.dispatch(hl.dsp.global("omalaunch:toggle"))
+end
+
+-- Open the launcher over the place now shown, unless it is already open.
+-- With a delay, only if that place is still shown and still empty by then,
+-- and the launcher was not opened by hand in the meantime.
+function M.open_here()
+  waiting_turn = waiting_turn + 1
+  if DELAY_MS <= 0 then return open_now() end
+  local turn, place = waiting_turn, here()
+  hl.timer(function()
+    if waiting_turn == turn and here() == place and empty_here() then open_now() end
+  end, { timeout = DELAY_MS, type = "oneshot" })
 end
 
 local function hide()
@@ -253,6 +283,7 @@ hl.on("monitor.focused", check)
 hl.on("layer.opened", function(layer)
   if layer.namespace ~= "omalaunch" then return end
   launcher_open = true
+  waiting_turn = waiting_turn + 1
   check()
 end)
 hl.on("layer.closed", function(layer)
@@ -261,11 +292,25 @@ hl.on("layer.closed", function(layer)
   home = nil
   local place = pending
   pending = nil
-  if place and place == here() then M.open_here() end
+  if place and place == here() then open_now() end
 end)
 
 return M
 LUA
+  } >"$AUTOFILE"
+}
+
+do_delay() {
+  local ms=${1:-}
+  if [[ -z $ms ]]; then printf '%s ms\n' "$(auto_delay)"; return; fi
+  [[ $ms =~ ^[0-9]+$ ]] || fail "delay takes a number of milliseconds"
+  mkdir -p "$(dirname "$AUTO_DELAY")"
+  printf '%s\n' "$ms" >"$AUTO_DELAY"
+  if [[ -f $AUTOFILE ]]; then
+    write_auto
+    hyprctl reload >/dev/null
+  fi
+  note "the scratchpad and workspace keys open the launcher after $ms ms"
 }
 
 # Remove the shared file once no key file needs it.
@@ -597,6 +642,8 @@ omalaunch — keyboard launcher for Omarchy
                            launcher over it when empty; Esc closes both; off removes them
   workspaces [on|off]      SUPER + 1…0 also open the launcher on an empty workspace
                            (a launcher opened by a key hides when you move away unused)
+  delay [MS]               wait MS before those keys open the launcher (default 0),
+                           for an animation of the workspace change to play out
   sync DIR | off           keep rankings and settings in DIR (synced folder, dotfiles)
   reload | dev             reload the plugin once / on every save
   doctor                   check the setup
@@ -620,6 +667,7 @@ case $cmd in
   hotkey) do_hotkey "$@" ;;
   scratchpad) do_scratchpad "$@" ;;
   workspaces) do_workspaces "$@" ;;
+  delay) do_delay "$@" ;;
   sync) do_sync "$@" ;;
   doctor) do_doctor ;;
   help|-h|--help) do_help ;;
