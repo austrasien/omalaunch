@@ -208,6 +208,8 @@ Item {
     if (e.kind === "action") {
       if (row.disabled) return { close: false, toast: e.label + " is unavailable" }
       root.host.shell(e.action)
+      // The action may flip a toggle: re-check guards on the next open.
+      root.guardsAt = 0
       return { close: true }
     }
     var menuId = e.kind === "link" ? e.target : e.id
