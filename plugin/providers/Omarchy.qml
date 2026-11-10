@@ -208,14 +208,20 @@ Item {
     if (e.kind === "action") {
       if (row.disabled) return { close: false, toast: e.label + " is unavailable" }
       root.host.shell(e.action)
-      // The action may flip a toggle: re-check guards on the next open.
-      root.guardsAt = 0
+      // The action may flip a toggle: have the new state ready for the next open.
+      guardRefresh.restart()
       return { close: true }
     }
     var menuId = e.kind === "link" ? e.target : e.id
     var m = root.entries[menuId]
     if (!m) return { close: false, toast: "Menu " + menuId + " not found" }
     return { close: false, push: { id: "omarchy:" + menuId, title: m.title || m.label, rows: submenuRows(menuId) } }
+  }
+
+  Timer {
+    id: guardRefresh
+    interval: 1000
+    onTriggered: root.evaluateGuards()
   }
 
   FileView {
