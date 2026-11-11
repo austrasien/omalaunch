@@ -10,6 +10,11 @@ PanelWindow {
 
   required property var launcher
   property bool shown: false
+  // Open but not drawn yet (launcher.veiled): everything takes the keyboard
+  // and the pointer as usual, at opacity 0. Then it fades in and unrolls.
+  property bool veiled: false
+  property real unveil: 1
+  contentItem.opacity: unveil
 
   readonly property real z: launcher.zoom
   function px(v) { return Math.round(v * window.z) }
@@ -91,13 +96,24 @@ PanelWindow {
       pointerGate.moved = false
       pointerGate.last = Qt.point(-1, -1)
       focusSearch(true)
-      unroll.restart()
+      unveiling.stop()
+      if (veiled) unveil = 0
+      else { unveil = 1; unroll.restart() }
     } else {
       unroll.stop()
+      unveiling.stop()
       if (animateClose && !Style.reduceMotion) closing.restart()
       else present = false
     }
     animateClose = false
+  }
+
+  onVeiledChanged: if (!veiled && shown) unveiling.restart()
+
+  SequentialAnimation {
+    id: unveiling
+    NumberAnimation { target: window; property: "unveil"; to: 1; duration: Style.reduceMotion ? 0 : 140; easing.type: Easing.OutCubic }
+    ScriptAction { script: unroll.restart() }
   }
 
   // Set just before a dismissal (Escape, the toggle, a click outside). Every

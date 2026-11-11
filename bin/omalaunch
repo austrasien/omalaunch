@@ -186,8 +186,9 @@ do_unbind() {
 # once another workspace (or no scratchpad) is shown, a launcher still open
 # from that key is hidden. A launcher opened by hand (Alt+Space) is never
 # hidden, and one already open when the key is pressed counts as opened by hand.
-# `omalaunch delay MS` makes the key wait before opening, to let an animation
-# of the workspace change play out (0 by default).
+# `omalaunch delay MS` keeps the launcher a key opens invisible for MS while it
+# already takes the keyboard, so an animation of the workspace change plays
+# first and typing still starts at once (0 by default).
 
 auto_delay() {
   local ms
@@ -233,12 +234,11 @@ function M.debounce(key)
   return true
 end
 
--- Bumped to drop an opening still waiting for DELAY_MS.
-local waiting_turn = 0
-
-local function empty_here()
-  local ws = hl.get_active_special_workspace() or hl.get_active_workspace()
-  return ws ~= nil and ws.windows == 0
+-- With a delay and animations on, the launcher opens at once but veiled for
+-- DELAY_MS (the plugin reads the same setting): it takes the keyboard while
+-- the workspace change animates, and shows after.
+local function veiled()
+  return DELAY_MS > 0 and hl.get_config("animations.enabled") ~= false
 end
 
 local function open_now()
@@ -253,20 +253,12 @@ local function open_now()
     return
   end
   home = here()
-  hl.dispatch(hl.dsp.global("omalaunch:toggle"))
+  hl.dispatch(hl.dsp.global(veiled() and "omalaunch:auto" or "omalaunch:toggle"))
 end
 
 -- Open the launcher over the place now shown, unless it is already open.
--- With a delay, only if that place is still shown and still empty by then,
--- and the launcher was not opened by hand in the meantime.
 function M.open_here()
-  waiting_turn = waiting_turn + 1
-  -- Animations off (call mode, `omarchy toggle animations`): nothing to wait for.
-  if DELAY_MS <= 0 or hl.get_config("animations.enabled") == false then return open_now() end
-  local turn, place = waiting_turn, here()
-  hl.timer(function()
-    if waiting_turn == turn and here() == place and empty_here() then open_now() end
-  end, { timeout = DELAY_MS, type = "oneshot" })
+  open_now()
 end
 
 local function hide()
@@ -284,7 +276,6 @@ hl.on("monitor.focused", check)
 hl.on("layer.opened", function(layer)
   if layer.namespace ~= "omalaunch" then return end
   launcher_open = true
-  waiting_turn = waiting_turn + 1
   check()
 end)
 hl.on("layer.closed", function(layer)
@@ -311,7 +302,7 @@ do_delay() {
     write_auto
     hyprctl reload >/dev/null
   fi
-  note "the scratchpad and workspace keys open the launcher after $ms ms"
+  note "the scratchpad and workspace keys open the launcher at once, shown after $ms ms"
 }
 
 # Remove the shared file once no key file needs it.
@@ -643,8 +634,8 @@ omalaunch — keyboard launcher for Omarchy
                            launcher over it when empty; Esc closes both; off removes them
   workspaces [on|off]      SUPER + 1…0 also open the launcher on an empty workspace
                            (a launcher opened by a key hides when you move away unused)
-  delay [MS]               wait MS before those keys open the launcher (default 0),
-                           for an animation of the workspace change to play out
+  delay [MS]               those keys open the launcher at once but show it after MS
+                           (default 0), once an animation of the workspace change is over
   sync DIR | off           keep rankings and settings in DIR (synced folder, dotfiles)
   reload | dev             reload the plugin once / on every save
   doctor                   check the setup

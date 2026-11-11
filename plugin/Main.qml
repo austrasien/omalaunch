@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
+import qs.Commons
 import "core/Rank.js" as Rank
 import "core/State.js" as State
 import "core/Sections.js" as Sections
@@ -25,6 +26,24 @@ Item {
   property var manifest: null
 
   property bool opened: false
+  // Open and taking the keyboard, but not drawn yet: the scratchpad and
+  // workspace keys open it this way while the workspace change animates
+  // (`omalaunch delay MS`), so typing, Enter and Alt+key work at once. A row
+  // run in the meantime closes it before it ever shows.
+  property bool veiled: false
+  property int autoVeilMs: 0
+  FileView {
+    path: (Quickshell.env("XDG_CONFIG_HOME") || Quickshell.env("HOME") + "/.config") + "/omalaunch/auto-delay"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: { var ms = parseInt(text(), 10); root.autoVeilMs = isFinite(ms) && ms > 0 ? ms : 0 }
+    onLoadFailed: root.autoVeilMs = 0
+  }
+  Timer {
+    id: veilTimer
+    onTriggered: root.veiled = false
+  }
   property double openedAt: 0
   property bool started: false
   property string query: ""
@@ -111,6 +130,10 @@ Item {
     root.actionPanelOpen = false
     root.promptMode = ""
     root.historyIndex = -1
+    var veil = Number(payload.veil) || 0
+    root.veiled = veil > 0 && !Style.reduceMotion
+    if (root.veiled) { veilTimer.interval = veil; veilTimer.restart() }
+    else veilTimer.stop()
     root.opened = true
     refreshTimer.restart()
     scheduleRebuild()
@@ -121,6 +144,8 @@ Item {
     if (!root.opened) return
     root.lastQuery = root.stack.length ? "" : root.query
     root.opened = false
+    veilTimer.stop()
+    root.veiled = false
     if (root.answer) closeAnswer()
     root.actionPanelOpen = false
     root.promptMode = ""
@@ -143,7 +168,8 @@ Item {
   // The user sends it away (Escape, the toggle, a click outside): animated.
   function dismiss() {
     if (!root.opened) return
-    window.animateClose = true
+    // Never seen: nothing to animate away.
+    window.animateClose = !root.veiled
     hide()
   }
 
@@ -671,6 +697,7 @@ Item {
     id: window
     launcher: root
     shown: root.opened
+    veiled: root.veiled
     screen: {
       var name = Hyprland.focusedMonitor ? Hyprland.focusedMonitor.name : ""
       var screens = Quickshell.screens
@@ -698,6 +725,14 @@ Item {
     name: "toggle"
     description: "Toggle omalaunch"
     onPressed: root.toggle()
+  }
+
+  // The scratchpad and workspace keys: open, veiled for `omalaunch delay` ms.
+  GlobalShortcut {
+    appid: "omalaunch"
+    name: "auto"
+    description: "Open omalaunch behind the workspace change animation"
+    onPressed: if (!root.opened) root.show(JSON.stringify({ veil: root.autoVeilMs }))
   }
 
   // Idempotent and instant, for the workspace keys' auto-hide.
