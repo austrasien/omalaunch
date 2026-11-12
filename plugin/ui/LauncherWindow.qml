@@ -88,9 +88,11 @@ PanelWindow {
   onShownChanged: {
     if (shown) {
       closing.stop()
-      squeeze = 0
-      shrink = 0
-      glow = 1
+      powerOn.stop()
+      var tube = !Style.reduceMotion
+      squeeze = tube ? 1 : 0
+      shrink = tube ? 1 : 0
+      glow = tube ? 0 : 1
       reveal = 0
       present = true
       pointerGate.moved = false
@@ -98,8 +100,9 @@ PanelWindow {
       focusSearch(true)
       unveiling.stop()
       if (veiled) unveil = 0
-      else { unveil = 1; unroll.restart() }
+      else { unveil = 1; powerOn.restart() }
     } else {
+      powerOn.stop()
       unroll.stop()
       unveiling.stop()
       if (animateClose && !Style.reduceMotion) closing.restart()
@@ -113,6 +116,17 @@ PanelWindow {
   SequentialAnimation {
     id: unveiling
     NumberAnimation { target: window; property: "unveil"; to: 1; duration: Style.reduceMotion ? 0 : 140; easing.type: Easing.OutCubic }
+    ScriptAction { script: powerOn.restart() }
+  }
+
+  // Opening, the closing played backwards like a tube warming up: a dot, a
+  // burnt line losing its tracking, the picture opening from the centre, then
+  // the drawer unrolling under the search field.
+  SequentialAnimation {
+    id: powerOn
+    NumberAnimation { target: window; property: "glow"; to: 1; duration: Style.reduceMotion ? 0 : 50 }
+    NumberAnimation { target: window; property: "shrink"; to: 0; duration: Style.reduceMotion ? 0 : 110; easing.type: Easing.OutCubic }
+    NumberAnimation { target: window; property: "squeeze"; to: 0; duration: Style.reduceMotion ? 0 : 140; easing.type: Easing.OutCubic }
     ScriptAction { script: unroll.restart() }
   }
 
@@ -147,7 +161,6 @@ PanelWindow {
   property real reveal: 1
   SequentialAnimation {
     id: unroll
-    PauseAnimation { duration: Style.reduceMotion ? 0 : 120 }
     NumberAnimation {
       target: window
       property: "reveal"
